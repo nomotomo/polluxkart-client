@@ -1,0 +1,340 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Package,
+  Truck,
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  ShoppingBag,
+  MapPin,
+  CreditCard,
+} from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '../components/ui/breadcrumb';
+import { useAuth } from '../context/AuthContext';
+
+const OrdersPage = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    // Load orders from localStorage
+    const savedOrders = JSON.parse(localStorage.getItem('polluxkart-orders') || '[]');
+    setOrders(savedOrders.reverse()); // Most recent first
+  }, []);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-success/10 text-success border-success/20';
+      case 'processing':
+        return 'bg-warning/10 text-warning border-warning/20';
+      case 'shipped':
+        return 'bg-primary/10 text-primary border-primary/20';
+      case 'delivered':
+        return 'bg-success/10 text-success border-success/20';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'confirmed':
+        return <CheckCircle2 className="h-4 w-4" />;
+      case 'processing':
+        return <Clock className="h-4 w-4" />;
+      case 'shipped':
+        return <Truck className="h-4 w-4" />;
+      case 'delivered':
+        return <Package className="h-4 w-4" />;
+      default:
+        return <Package className="h-4 w-4" />;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+              <Package className="h-12 w-12 text-muted-foreground" />
+            </div>
+            <h2 className="font-heading text-2xl font-bold text-foreground mb-2">
+              Please login to view orders
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              You need to be logged in to see your order history.
+            </p>
+            <Button onClick={() => navigate('/auth')}>Login / Sign Up</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <Breadcrumb className="mb-6">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/">Home</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Orders</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+              <ShoppingBag className="h-12 w-12 text-muted-foreground" />
+            </div>
+            <h2 className="font-heading text-2xl font-bold text-foreground mb-2">
+              No orders yet
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              You haven't placed any orders yet. Start shopping!
+            </p>
+            <Button onClick={() => navigate('/store')}>
+              Start Shopping
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Breadcrumb */}
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/">Home</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Orders</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="font-heading text-3xl font-bold text-foreground">My Orders</h1>
+          <p className="text-muted-foreground mt-1">
+            Track and manage your orders
+          </p>
+        </div>
+
+        {/* Orders Tabs */}
+        <Tabs defaultValue="all" className="space-y-6">
+          <TabsList className="bg-muted/50">
+            <TabsTrigger value="all">All Orders</TabsTrigger>
+            <TabsTrigger value="processing">Processing</TabsTrigger>
+            <TabsTrigger value="delivered">Delivered</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-4">
+            {orders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                getStatusColor={getStatusColor}
+                getStatusIcon={getStatusIcon}
+                formatDate={formatDate}
+              />
+            ))}
+          </TabsContent>
+
+          <TabsContent value="processing" className="space-y-4">
+            {orders
+              .filter((o) => ['confirmed', 'processing', 'shipped'].includes(o.status))
+              .map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  getStatusColor={getStatusColor}
+                  getStatusIcon={getStatusIcon}
+                  formatDate={formatDate}
+                />
+              ))}
+          </TabsContent>
+
+          <TabsContent value="delivered" className="space-y-4">
+            {orders
+              .filter((o) => o.status === 'delivered')
+              .map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  getStatusColor={getStatusColor}
+                  getStatusIcon={getStatusIcon}
+                  formatDate={formatDate}
+                />
+              ))}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate }) => {
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="font-heading text-lg">Order #{order.id}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Placed on {formatDate(order.createdAt)}
+            </p>
+          </div>
+          <Badge
+            variant="outline"
+            className={`${getStatusColor(order.status)} capitalize w-fit`}
+          >
+            {getStatusIcon(order.status)}
+            <span className="ml-1">{order.status}</span>
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Order Items */}
+        <div className="space-y-3">
+          {order.items.map((item) => (
+            <div key={item.id} className="flex gap-4">
+              <Link to={`/product/${item.id}`} className="shrink-0">
+                <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </Link>
+              <div className="flex-1 min-w-0">
+                <Link
+                  to={`/product/${item.id}`}
+                  className="font-medium text-foreground hover:text-primary line-clamp-1"
+                >
+                  {item.name}
+                </Link>
+                <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                <p className="text-sm font-medium text-foreground">
+                  ${(item.price * item.quantity).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Separator />
+
+        {/* Order Details */}
+        <div className="grid sm:grid-cols-3 gap-4">
+          {/* Delivery Address */}
+          {order.address && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <MapPin className="h-4 w-4 text-primary" />
+                Delivery Address
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {order.address.street}, {order.address.city}, {order.address.state} -{' '}
+                {order.address.pincode}
+              </p>
+            </div>
+          )}
+
+          {/* Payment Method */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CreditCard className="h-4 w-4 text-primary" />
+              Payment Method
+            </div>
+            <p className="text-sm text-muted-foreground capitalize">
+              {order.paymentMethod === 'razorpay' ? 'Razorpay' : order.paymentMethod}
+            </p>
+          </div>
+
+          {/* Total */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Package className="h-4 w-4 text-primary" />
+              Order Total
+            </div>
+            <p className="text-lg font-bold text-primary">${order.total.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Order Tracking Timeline */}
+        <div className="pt-4">
+          <div className="flex items-center justify-between relative">
+            <div className="absolute left-0 right-0 top-1/2 h-1 bg-muted -translate-y-1/2" />
+            <div className="absolute left-0 right-0 top-1/2 h-1 bg-primary -translate-y-1/2" style={{ width: order.status === 'confirmed' ? '25%' : order.status === 'processing' ? '50%' : order.status === 'shipped' ? '75%' : '100%' }} />
+            
+            {['confirmed', 'processing', 'shipped', 'delivered'].map((step, index) => {
+              const isCompleted = ['confirmed', 'processing', 'shipped', 'delivered'].indexOf(order.status) >= index;
+              return (
+                <div key={step} className="relative flex flex-col items-center z-10">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isCompleted
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <span className="text-xs">{index + 1}</span>
+                    )}
+                  </div>
+                  <span className="text-xs mt-2 text-muted-foreground capitalize hidden sm:block">
+                    {step}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default OrdersPage;
