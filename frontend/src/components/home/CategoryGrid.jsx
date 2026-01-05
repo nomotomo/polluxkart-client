@@ -49,7 +49,7 @@ const CategoryGrid = () => {
               </Card>
             </Link>
           );
-        })})
+        })}
       </div>
     </section>
   );
