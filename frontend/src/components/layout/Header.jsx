@@ -173,13 +173,8 @@ const Header = () => {
               </SheetTrigger>
               <SheetContent side="right" className="w-72">
                 <div className="flex flex-col gap-6 mt-6">
-                  <Link to="/" className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                      <span className="text-primary-foreground font-heading font-bold text-lg">P</span>
-                    </div>
-                    <span className="font-heading font-bold text-xl">
-                      Pollux<span className="text-primary">Kart</span>
-                    </span>
+                  <Link to="/">
+                    <Logo size="default" />
                   </Link>
                   <nav className="flex flex-col gap-4">
                     {navLinks.map((link) => (
