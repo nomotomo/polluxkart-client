@@ -4,6 +4,7 @@ import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'luci
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
+import Logo from '../brand/Logo';
 
 const Footer = () => {
   const footerLinks = {
@@ -41,13 +42,8 @@ const Footer = () => {
         <div className="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand & Newsletter */}
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-heading font-bold text-lg">P</span>
-              </div>
-              <span className="font-heading font-bold text-xl">
-                Pollux<span className="text-primary">Kart</span>
-              </span>
+            <Link to="/" className="inline-block mb-4">
+              <Logo size="default" />
             </Link>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">
               Your one-stop destination for electronics, fashion, home essentials, and more. 
