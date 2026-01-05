@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Laptop, Shirt, Home, Apple, Sparkles, Dumbbell } from 'lucide-react';
+import { ArrowRight, Laptop, Shirt, Home, Apple, Sparkles, Dumbbell, Grid3X3 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
+import { Button } from '../ui/button';
 import { categories } from '../../data/products';
+import CategoriesModal from './CategoriesModal';
 
 const iconMap = {
   Laptop,
@@ -16,9 +18,19 @@ const iconMap = {
 const CategoryGrid = () => {
   return (
     <section id="categories-section" className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-20">
-      <div className="text-center mb-10">
-        <h2 className="font-heading text-3xl font-bold text-foreground">Shop by Category</h2>
-        <p className="text-muted-foreground mt-2">Explore our wide range of products</p>
+      <div className="flex items-center justify-between mb-10">
+        <div className="text-center sm:text-left">
+          <h2 className="font-heading text-3xl font-bold text-foreground">Shop by Category</h2>
+          <p className="text-muted-foreground mt-2">Explore our wide range of products</p>
+        </div>
+        <CategoriesModal 
+          trigger={
+            <Button variant="outline" className="hidden sm:flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              View All
+            </Button>
+          }
+        />
       </div>
       
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -50,6 +62,18 @@ const CategoryGrid = () => {
             </Link>
           );
         })}
+      </div>
+
+      {/* Mobile View All Button */}
+      <div className="mt-6 sm:hidden flex justify-center">
+        <CategoriesModal 
+          trigger={
+            <Button variant="outline" className="flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              View All Categories
+            </Button>
+          }
+        />
       </div>
     </section>
   );
