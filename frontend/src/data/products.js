@@ -1,11 +1,89 @@
 // Mock product data for PolluxKart
 export const categories = [
-  { id: 'electronics', name: 'Electronics', icon: 'Laptop', count: 24 },
-  { id: 'fashion', name: 'Fashion', icon: 'Shirt', count: 56 },
-  { id: 'home', name: 'Home & Lifestyle', icon: 'Home', count: 38 },
-  { id: 'grocery', name: 'Food & Grocery', icon: 'Apple', count: 42 },
-  { id: 'beauty', name: 'Beauty & Care', icon: 'Sparkles', count: 28 },
-  { id: 'sports', name: 'Sports & Fitness', icon: 'Dumbbell', count: 19 },
+  { 
+    id: 'electronics', 
+    name: 'Electronics', 
+    icon: 'Laptop', 
+    count: 24,
+    description: 'Gadgets, devices & accessories',
+    subcategories: [
+      { id: 'phones', name: 'Smartphones', count: 8 },
+      { id: 'laptops', name: 'Laptops & Computers', count: 6 },
+      { id: 'audio', name: 'Audio & Headphones', count: 5 },
+      { id: 'wearables', name: 'Wearables & Smartwatches', count: 3 },
+      { id: 'accessories', name: 'Accessories', count: 2 },
+    ]
+  },
+  { 
+    id: 'fashion', 
+    name: 'Fashion', 
+    icon: 'Shirt', 
+    count: 56,
+    description: 'Clothing, shoes & accessories',
+    subcategories: [
+      { id: 'mens', name: "Men's Clothing", count: 18 },
+      { id: 'womens', name: "Women's Clothing", count: 20 },
+      { id: 'shoes', name: 'Footwear', count: 10 },
+      { id: 'bags', name: 'Bags & Luggage', count: 5 },
+      { id: 'jewelry', name: 'Jewelry & Watches', count: 3 },
+    ]
+  },
+  { 
+    id: 'home', 
+    name: 'Home & Lifestyle', 
+    icon: 'Home', 
+    count: 38,
+    description: 'Furniture, decor & essentials',
+    subcategories: [
+      { id: 'furniture', name: 'Furniture', count: 12 },
+      { id: 'decor', name: 'Home Decor', count: 10 },
+      { id: 'kitchen', name: 'Kitchen & Dining', count: 8 },
+      { id: 'lighting', name: 'Lighting', count: 5 },
+      { id: 'bedding', name: 'Bedding & Bath', count: 3 },
+    ]
+  },
+  { 
+    id: 'grocery', 
+    name: 'Food & Grocery', 
+    icon: 'Apple', 
+    count: 42,
+    description: 'Fresh food, beverages & pantry',
+    subcategories: [
+      { id: 'fresh', name: 'Fresh Produce', count: 10 },
+      { id: 'beverages', name: 'Beverages', count: 12 },
+      { id: 'snacks', name: 'Snacks & Sweets', count: 8 },
+      { id: 'pantry', name: 'Pantry Staples', count: 7 },
+      { id: 'organic', name: 'Organic & Health', count: 5 },
+    ]
+  },
+  { 
+    id: 'beauty', 
+    name: 'Beauty & Care', 
+    icon: 'Sparkles', 
+    count: 28,
+    description: 'Skincare, makeup & personal care',
+    subcategories: [
+      { id: 'skincare', name: 'Skincare', count: 10 },
+      { id: 'makeup', name: 'Makeup', count: 8 },
+      { id: 'haircare', name: 'Hair Care', count: 5 },
+      { id: 'fragrance', name: 'Fragrances', count: 3 },
+      { id: 'personal', name: 'Personal Care', count: 2 },
+    ]
+  },
+  { 
+    id: 'sports', 
+    name: 'Sports & Fitness', 
+    icon: 'Dumbbell', 
+    count: 19,
+    description: 'Equipment, apparel & nutrition',
+    subcategories: [
+      { id: 'equipment', name: 'Fitness Equipment', count: 6 },
+      { id: 'sportswear', name: 'Sportswear', count: 5 },
+      { id: 'outdoor', name: 'Outdoor & Adventure', count: 4 },
+      { id: 'nutrition', name: 'Sports Nutrition', count: 2 },
+      { id: 'yoga', name: 'Yoga & Wellness', count: 2 },
+    ]
+  },
 ];
 
 export const products = [
