@@ -78,13 +78,8 @@ const AuthPage = () => {
         <div className="flex flex-col lg:flex-row items-center justify-center gap-12 min-h-[calc(100vh-200px)]">
           {/* Left Side - Branding */}
           <div className="flex-1 max-w-md text-center lg:text-left">
-            <Link to="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-heading font-bold text-2xl">P</span>
-              </div>
-              <span className="font-heading font-bold text-3xl">
-                Pollux<span className="text-primary">Kart</span>
-              </span>
+            <Link to="/" className="inline-block mb-6">
+              <Logo size="large" />
             </Link>
             <h1 className="font-heading text-3xl lg:text-4xl font-bold text-foreground mb-4">
               Welcome to PolluxKart
