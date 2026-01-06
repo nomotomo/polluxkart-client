@@ -33,7 +33,7 @@ import {
 } from '../components/ui/breadcrumb';
 import ProductCard from '../components/products/ProductCard';
 import ProductService from '../services/productService';
-import { useDebounce } from '../hooks/useDebounce';
+import { useDebouncedState } from '../hooks/useDebounce';
 // Fallback mock data
 import { products as mockProducts, categories as mockCategories } from '../data/products';
 
