@@ -74,18 +74,18 @@ const AuthPage = () => {
 
   // Handle OTP input change
   const handleOtpChange = (index, value, otpArray, setOtpArray, refs) => {
-    if (value.length > 1) {
-      value = value.slice(-1);
-    }
-    if (!/^\d*$/.test(value)) return;
-
+    // Only allow single digit
+    const digit = value.replace(/\D/g, '').slice(-1);
+    
     const newOtp = [...otpArray];
-    newOtp[index] = value;
+    newOtp[index] = digit;
     setOtpArray(newOtp);
 
-    // Auto-focus next input
-    if (value && index < 5) {
-      refs.current[index + 1]?.focus();
+    // Auto-focus next input when a digit is entered
+    if (digit && index < 5) {
+      setTimeout(() => {
+        refs.current[index + 1]?.focus();
+      }, 0);
     }
   };
 
