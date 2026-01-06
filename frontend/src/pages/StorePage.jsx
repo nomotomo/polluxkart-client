@@ -291,7 +291,7 @@ const StorePage = () => {
     setSelectedBrandId(null);
     setSelectedTypeId(null);
     setPriceRange([0, 1500]);
-    setSearchQuery('');
+    setSearchInput('');
     setSortBy('default');
     setCurrentPage(1);
     setSearchParams({});
