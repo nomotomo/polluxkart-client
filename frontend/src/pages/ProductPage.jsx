@@ -274,6 +274,7 @@ const ProductPage = () => {
                     size="icon"
                     className="rounded-r-none"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={isOutOfStock}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -283,26 +284,44 @@ const ProductPage = () => {
                     size="icon"
                     className="rounded-l-none"
                     onClick={() => setQuantity(quantity + 1)}
+                    disabled={isOutOfStock}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
+              {/* Out of Stock Notice */}
+              {isOutOfStock && (
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <p className="text-destructive font-medium flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-destructive"></span>
+                    Currently Out of Stock
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This item is not available for purchase at the moment.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   size="lg"
-                  className="flex-1 bg-primary hover:bg-primary-dark shadow-lg shadow-primary/25"
+                  className={`flex-1 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'bg-primary hover:bg-primary-dark shadow-lg shadow-primary/25'}`}
                   onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  data-testid="add-to-cart-btn"
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" />
-                  Add to Cart
+                  {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="flex-1"
+                  className={`flex-1 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={handleBuyNow}
+                  disabled={isOutOfStock}
+                  data-testid="buy-now-btn"
                 >
                   Buy Now
                 </Button>
