@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   Search,
@@ -33,11 +33,11 @@ import {
 } from '../components/ui/breadcrumb';
 import ProductCard from '../components/products/ProductCard';
 import ProductService from '../services/productService';
-import { useDebouncedState } from '../hooks/useDebounce';
 // Fallback mock data
 import { products as mockProducts, categories as mockCategories } from '../data/products';
 
 const ITEMS_PER_PAGE = 12;
+const SEARCH_DEBOUNCE_MS = 500;
 
 // Flag to enable/disable API integration (set to true when your backend is running)
 const USE_API = true; // Change to false to use mock data
@@ -49,8 +49,11 @@ const StorePage = () => {
   const [sortBy, setSortBy] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Debounced search - searchInput is immediate, searchQuery is debounced (500ms)
-  const [searchInput, setSearchInput, searchQuery] = useDebouncedState('', 500);
+  // Search states - separate input value from the actual filter value
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [searchFilterValue, setSearchFilterValue] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef(null);
   
   // API data state
   const [products, setProducts] = useState([]);
@@ -64,6 +67,43 @@ const StorePage = () => {
   const [selectedBrandId, setSelectedBrandId] = useState(null);
   const [selectedTypeId, setSelectedTypeId] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
+
+  // Handle search input change with debounce
+  const handleSearchChange = useCallback((value) => {
+    setSearchInputValue(value);
+    
+    // Clear any existing timer
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    
+    // If value is empty, update immediately
+    if (!value) {
+      setSearchFilterValue('');
+      setIsSearching(false);
+      setCurrentPage(1);
+      return;
+    }
+    
+    // Show searching indicator
+    setIsSearching(true);
+    
+    // Set new timer to update filter after delay
+    searchTimerRef.current = setTimeout(() => {
+      setSearchFilterValue(value);
+      setIsSearching(false);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   // Load products from API
   const loadProducts = useCallback(async () => {
