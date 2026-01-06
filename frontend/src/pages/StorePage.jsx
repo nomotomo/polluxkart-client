@@ -168,7 +168,7 @@ const StorePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, selectedBrandId, selectedTypeId, sortBy, searchFilterValue]);
+  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
 
   // Load brands from API
   const loadBrands = useCallback(async () => {
