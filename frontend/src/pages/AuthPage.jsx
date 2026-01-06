@@ -1,39 +1,81 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, Phone, ChevronDown } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import { ScrollArea } from '../components/ui/scroll-area';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import Logo from '../components/brand/Logo';
+import { countryCodes, getCountryByCode } from '../data/countryCodes';
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const { login, signup, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'phone'
+  const [loginCountryCode, setLoginCountryCode] = useState('+91');
+  const [signupCountryCode, setSignupCountryCode] = useState('+91');
   
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ 
+    email: '', 
+    phone: '',
+    password: '' 
+  });
   const [signupData, setSignupData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     agreeTerms: false,
   });
 
+  const loginCountry = getCountryByCode(loginCountryCode);
+  const signupCountry = getCountryByCode(signupCountryCode);
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginData.email || !loginData.password) {
-      toast.error('Please fill in all fields');
+    const identifier = loginMethod === 'email' ? loginData.email : `${loginCountryCode}${loginData.phone}`;
+    
+    if (!loginData.email && loginMethod === 'email') {
+      toast.error('Please enter your email');
       return;
     }
+    
+    if (!loginData.phone && loginMethod === 'phone') {
+      toast.error('Please enter your phone number');
+      return;
+    }
+    
+    if (!loginData.password) {
+      toast.error('Please enter your password');
+      return;
+    }
+    
+    // Validate phone number format based on country
+    if (loginMethod === 'phone') {
+      const phoneDigits = loginData.phone.replace(/\D/g, '');
+      if (phoneDigits.length < 7 || phoneDigits.length > loginCountry.maxLength) {
+        toast.error(`Please enter a valid phone number (${loginCountry.maxLength} digits for ${loginCountry.country})`);
+        return;
+      }
+    }
+    
     try {
-      await login(loginData.email, loginData.password);
+      await login(identifier, loginData.password, loginMethod);
       toast.success('Welcome back!');
       navigate('/');
     } catch (error) {
@@ -43,26 +85,80 @@ const AuthPage = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupData.name || !signupData.email || !signupData.password) {
-      toast.error('Please fill in all fields');
+    
+    if (!signupData.name || !signupData.phone || !signupData.password) {
+      toast.error('Please fill in all required fields');
       return;
     }
+    
+    // Validate phone number based on country
+    const phoneDigits = signupData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > signupCountry.maxLength) {
+      toast.error(`Please enter a valid phone number (${signupCountry.maxLength} digits for ${signupCountry.country})`);
+      return;
+    }
+    
+    // Validate email if provided
+    if (signupData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
     if (signupData.password !== signupData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
+    
+    if (signupData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    
     if (!signupData.agreeTerms) {
       toast.error('Please agree to the terms and conditions');
       return;
     }
+    
     try {
-      await signup(signupData.name, signupData.email, signupData.password);
+      const fullPhone = `${signupCountryCode}${signupData.phone}`;
+      await signup(signupData.name, signupData.email, fullPhone, signupData.password);
       toast.success('Account created successfully!');
       navigate('/');
     } catch (error) {
       toast.error('Signup failed. Please try again.');
     }
   };
+
+  const CountryCodeSelector = ({ value, onChange, id }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="flex items-center gap-1 px-2 h-10 rounded-r-none border-r-0 bg-muted/50 hover:bg-muted min-w-[90px]"
+          data-testid={`country-code-${id}`}
+        >
+          <span className="text-base">{getCountryByCode(value).flag}</span>
+          <span className="text-sm font-medium">{value}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[240px]">
+        <ScrollArea className="h-[300px]">
+          {countryCodes.map((country) => (
+            <DropdownMenuItem
+              key={country.code}
+              onClick={() => onChange(country.code)}
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              <span className="text-lg">{country.flag}</span>
+              <span className="flex-1 text-sm">{country.country}</span>
+              <span className="text-sm text-muted-foreground">{country.code}</span>
+            </DropdownMenuItem>
+          ))}
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
@@ -114,33 +210,83 @@ const AuthPage = () => {
           <div className="w-full max-w-md">
             <Card className="border-0 shadow-xl">
               <Tabs defaultValue="login" className="w-full">
-                <CardHeader className="pb-0">
+                <div className="px-6 pt-6">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login">Login</TabsTrigger>
-                    <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                    <TabsTrigger value="login" data-testid="login-tab">Login</TabsTrigger>
+                    <TabsTrigger value="signup" data-testid="signup-tab">Sign Up</TabsTrigger>
                   </TabsList>
-                </CardHeader>
+                </div>
 
                 <CardContent className="pt-6">
                   {/* Login Tab */}
                   <TabsContent value="login" className="mt-0">
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="login-email">Email</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="login-email"
-                            type="email"
-                            placeholder="Enter your email"
-                            value={loginData.email}
-                            onChange={(e) =>
-                              setLoginData({ ...loginData, email: e.target.value })
-                            }
-                            className="pl-10"
-                          />
-                        </div>
+                    <form onSubmit={handleLogin} className="space-y-4" data-testid="login-form">
+                      {/* Login Method Selection */}
+                      <div className="space-y-3">
+                        <Label>Login with</Label>
+                        <RadioGroup
+                          value={loginMethod}
+                          onValueChange={setLoginMethod}
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="email" id="login-email-method" />
+                            <Label htmlFor="login-email-method" className="font-normal cursor-pointer">
+                              Email
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="phone" id="login-phone-method" />
+                            <Label htmlFor="login-phone-method" className="font-normal cursor-pointer">
+                              Phone
+                            </Label>
+                          </div>
+                        </RadioGroup>
                       </div>
+
+                      {/* Email/Phone Input */}
+                      {loginMethod === 'email' ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="login-email">Email</Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              id="login-email"
+                              type="email"
+                              placeholder="Enter your email"
+                              value={loginData.email}
+                              onChange={(e) =>
+                                setLoginData({ ...loginData, email: e.target.value })
+                              }
+                              className="pl-10"
+                              data-testid="login-email-input"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="login-phone">Phone Number</Label>
+                          <div className="flex">
+                            <CountryCodeSelector
+                              value={loginCountryCode}
+                              onChange={setLoginCountryCode}
+                              id="login"
+                            />
+                            <Input
+                              id="login-phone"
+                              type="tel"
+                              placeholder="Enter your phone number"
+                              value={loginData.phone}
+                              onChange={(e) =>
+                                setLoginData({ ...loginData, phone: e.target.value.replace(/\D/g, '').slice(0, loginCountry.maxLength) })
+                              }
+                              className="rounded-l-none"
+                              maxLength={loginCountry.maxLength}
+                              data-testid="login-phone-input"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -163,6 +309,7 @@ const AuthPage = () => {
                               setLoginData({ ...loginData, password: e.target.value })
                             }
                             className="pl-10 pr-10"
+                            data-testid="login-password-input"
                           />
                           <button
                             type="button"
@@ -182,6 +329,7 @@ const AuthPage = () => {
                         type="submit"
                         className="w-full bg-primary hover:bg-primary-dark"
                         disabled={isLoading}
+                        data-testid="login-submit-btn"
                       >
                         {isLoading ? 'Logging in...' : 'Login'}
                       </Button>
@@ -223,43 +371,69 @@ const AuthPage = () => {
 
                   {/* Signup Tab */}
                   <TabsContent value="signup" className="mt-0">
-                    <form onSubmit={handleSignup} className="space-y-4">
+                    <form onSubmit={handleSignup} className="space-y-4" data-testid="signup-form">
                       <div className="space-y-2">
-                        <Label htmlFor="signup-name">Full Name</Label>
+                        <Label htmlFor="signup-name">Full Name <span className="text-destructive">*</span></Label>
                         <div className="relative">
                           <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
                             id="signup-name"
                             type="text"
-                            placeholder="Enter your name"
+                            placeholder="Enter your full name"
                             value={signupData.name}
                             onChange={(e) =>
                               setSignupData({ ...signupData, name: e.target.value })
                             }
                             className="pl-10"
+                            data-testid="signup-name-input"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="signup-email">Email</Label>
+                        <Label htmlFor="signup-phone">Phone Number <span className="text-destructive">*</span></Label>
+                        <div className="flex">
+                          <CountryCodeSelector
+                            value={signupCountryCode}
+                            onChange={setSignupCountryCode}
+                            id="signup"
+                          />
+                          <Input
+                            id="signup-phone"
+                            type="tel"
+                            placeholder="Enter your phone number"
+                            value={signupData.phone}
+                            onChange={(e) =>
+                              setSignupData({ ...signupData, phone: e.target.value.replace(/\D/g, '').slice(0, signupCountry.maxLength) })
+                            }
+                            className="rounded-l-none"
+                            maxLength={signupCountry.maxLength}
+                            data-testid="signup-phone-input"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">We'll send OTP for verification</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email">Email <span className="text-muted-foreground text-xs">(Optional)</span></Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
                             id="signup-email"
                             type="email"
-                            placeholder="Enter your email"
+                            placeholder="Enter your email (optional)"
                             value={signupData.email}
                             onChange={(e) =>
                               setSignupData({ ...signupData, email: e.target.value })
                             }
                             className="pl-10"
+                            data-testid="signup-email-input"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="signup-password">Password</Label>
+                        <Label htmlFor="signup-password">Password <span className="text-destructive">*</span></Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
@@ -271,6 +445,7 @@ const AuthPage = () => {
                               setSignupData({ ...signupData, password: e.target.value })
                             }
                             className="pl-10 pr-10"
+                            data-testid="signup-password-input"
                           />
                           <button
                             type="button"
@@ -284,10 +459,11 @@ const AuthPage = () => {
                             )}
                           </button>
                         </div>
+                        <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="confirm-password">Confirm Password</Label>
+                        <Label htmlFor="confirm-password">Confirm Password <span className="text-destructive">*</span></Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
@@ -302,6 +478,7 @@ const AuthPage = () => {
                               })
                             }
                             className="pl-10"
+                            data-testid="signup-confirm-password-input"
                           />
                         </div>
                       </div>
@@ -313,6 +490,7 @@ const AuthPage = () => {
                           onCheckedChange={(checked) =>
                             setSignupData({ ...signupData, agreeTerms: checked })
                           }
+                          data-testid="signup-terms-checkbox"
                         />
                         <Label htmlFor="terms" className="text-sm font-normal">
                           I agree to the{' '}
@@ -330,6 +508,7 @@ const AuthPage = () => {
                         type="submit"
                         className="w-full bg-primary hover:bg-primary-dark"
                         disabled={isLoading}
+                        data-testid="signup-submit-btn"
                       >
                         {isLoading ? 'Creating account...' : 'Create Account'}
                       </Button>

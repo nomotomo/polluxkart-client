@@ -409,7 +409,7 @@ export const products = [
     ],
     description: 'Luxurious fragrance with notes of jasmine, sandalwood, and vanilla.',
     features: ['Eau de Parfum', 'Long Lasting', '100ml', 'Unisex'],
-    inStock: true,
+    inStock: false,
   },
   // Sports & Fitness
   {
@@ -444,7 +444,7 @@ export const products = [
     ],
     description: 'Advanced fitness tracker with heart rate monitoring and GPS.',
     features: ['Heart Rate Monitor', 'GPS', 'Sleep Tracking', 'Water Resistant'],
-    inStock: true,
+    inStock: false,
   },
 ];
 

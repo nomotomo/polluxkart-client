@@ -29,17 +29,21 @@ import {
   BreadcrumbSeparator,
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { getProductById, products } from '../data/products';
 import ProductCard from '../components/products/ProductCard';
+import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
 
 const ProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const product = getProductById(id);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const inWishlist = product ? isInWishlist(product.id) : false;
 
   if (!product) {
     return (
@@ -52,6 +56,8 @@ const ProductPage = () => {
       </div>
     );
   }
+
+  const isOutOfStock = product.inStock === false;
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -104,11 +110,19 @@ const ProductPage = () => {
   ];
 
   const handleAddToCart = () => {
+    if (isOutOfStock) {
+      toast.error('This item is currently out of stock');
+      return;
+    }
     addToCart(product, quantity);
     toast.success(`${quantity}x ${product.name} added to cart!`);
   };
 
   const handleBuyNow = () => {
+    if (isOutOfStock) {
+      toast.error('This item is currently out of stock');
+      return;
+    }
     addToCart(product, quantity);
     navigate('/checkout');
   };
@@ -216,16 +230,16 @@ const ProductPage = () => {
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="font-heading text-4xl font-bold text-foreground">
-                ${product.price.toFixed(2)}
+                {formatPrice(product.price)}
               </span>
               {product.originalPrice && (
                 <span className="text-xl text-muted-foreground line-through">
-                  ${product.originalPrice.toFixed(2)}
+                  {formatPrice(product.originalPrice)}
                 </span>
               )}
               {discount > 0 && (
                 <Badge variant="secondary" className="bg-success/10 text-success">
-                  Save ${(product.originalPrice - product.price).toFixed(2)}
+                  Save {formatPrice(product.originalPrice - product.price)}
                 </Badge>
               )}
             </div>
@@ -260,6 +274,7 @@ const ProductPage = () => {
                     size="icon"
                     className="rounded-r-none"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={isOutOfStock}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -269,37 +284,70 @@ const ProductPage = () => {
                     size="icon"
                     className="rounded-l-none"
                     onClick={() => setQuantity(quantity + 1)}
+                    disabled={isOutOfStock}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
+              {/* Out of Stock Notice */}
+              {isOutOfStock && (
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <p className="text-destructive font-medium flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-destructive"></span>
+                    Currently Out of Stock
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This item is not available for purchase at the moment.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   size="lg"
-                  className="flex-1 bg-primary hover:bg-primary-dark shadow-lg shadow-primary/25"
+                  className={`flex-1 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'bg-primary hover:bg-primary-dark shadow-lg shadow-primary/25'}`}
                   onClick={handleAddToCart}
+                  disabled={isOutOfStock}
+                  data-testid="add-to-cart-btn"
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" />
-                  Add to Cart
+                  {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="flex-1"
+                  className={`flex-1 ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={handleBuyNow}
+                  disabled={isOutOfStock}
+                  data-testid="buy-now-btn"
                 >
                   Buy Now
                 </Button>
               </div>
 
               <div className="flex gap-4">
-                <Button variant="ghost" size="sm" onClick={() => toast.success('Added to wishlist!')}>
-                  <Heart className="mr-2 h-4 w-4" />
-                  Wishlist
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    const added = toggleWishlist(product);
+                    if (added) {
+                      toast.success('Added to wishlist!');
+                    } else {
+                      toast.success('Removed from wishlist');
+                    }
+                  }}
+                  className={inWishlist ? 'text-destructive hover:text-destructive' : ''}
+                >
+                  <Heart className={`mr-2 h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
+                  {inWishlist ? 'In Wishlist' : 'Add to Wishlist'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => toast.success('Link copied!')}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied!');
+                }}>
                   <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>

@@ -14,6 +14,7 @@ import {
   BreadcrumbSeparator,
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
+import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
 
 const CartPage = () => {
@@ -22,8 +23,8 @@ const CartPage = () => {
   const [promoCode, setPromoCode] = React.useState('');
   const [discount, setDiscount] = React.useState(0);
 
-  const shipping = cartTotal > 100 ? 0 : 9.99;
-  const tax = cartTotal * 0.08;
+  const shipping = cartTotal > 500 ? 0 : 49;
+  const tax = cartTotal * 0.18; // 18% GST
   const finalTotal = cartTotal - discount + shipping + tax;
 
   const handleApplyPromo = () => {
@@ -176,11 +177,11 @@ const CartPage = () => {
                         {/* Price */}
                         <div className="text-right">
                           <p className="font-heading font-bold text-lg text-foreground">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            {formatPrice(item.price * item.quantity)}
                           </p>
                           {item.quantity > 1 && (
                             <p className="text-xs text-muted-foreground">
-                              ${item.price.toFixed(2)} each
+                              {formatPrice(item.price)} each
                             </p>
                           )}
                         </div>
@@ -236,12 +237,12 @@ const CartPage = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium">${cartTotal.toFixed(2)}</span>
+                    <span className="font-medium">{formatPrice(cartTotal)}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-success">
                       <span>Discount</span>
-                      <span>-${discount.toFixed(2)}</span>
+                      <span>-{formatPrice(discount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
@@ -250,13 +251,13 @@ const CartPage = () => {
                       {shipping === 0 ? (
                         <span className="text-success">Free</span>
                       ) : (
-                        `$${shipping.toFixed(2)}`
+                        formatPrice(shipping)
                       )}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax (8%)</span>
-                    <span className="font-medium">${tax.toFixed(2)}</span>
+                    <span className="text-muted-foreground">GST (18%)</span>
+                    <span className="font-medium">{formatPrice(tax)}</span>
                   </div>
                 </div>
 
@@ -265,13 +266,13 @@ const CartPage = () => {
                 <div className="flex justify-between">
                   <span className="font-heading font-bold text-lg">Total</span>
                   <span className="font-heading font-bold text-lg text-primary">
-                    ${finalTotal.toFixed(2)}
+                    {formatPrice(finalTotal)}
                   </span>
                 </div>
 
-                {cartTotal < 100 && (
+                {cartTotal < 500 && (
                   <p className="text-xs text-muted-foreground text-center">
-                    Add ${(100 - cartTotal).toFixed(2)} more for free shipping!
+                    Add {formatPrice(500 - cartTotal)} more for free shipping!
                   </p>
                 )}
 
