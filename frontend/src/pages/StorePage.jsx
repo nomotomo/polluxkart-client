@@ -198,34 +198,31 @@ const StorePage = () => {
 
   // Filter products locally for mock data (API handles filtering server-side)
   const filteredProducts = useMemo(() => {
-    if (USE_API) {
-      // API already filters, just apply local price filter if needed
-      return products.filter(
-        (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
-      );
-    }
-
-    // Local filtering for mock data
+    // Always apply local filtering since API might fail and we fall back to mock data
     let result = [...products];
 
+    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query)
+          (p.description && p.description.toLowerCase().includes(query)) ||
+          (p.category && p.category.toLowerCase().includes(query))
       );
     }
 
-    if (selectedCategories.length > 0) {
+    // Apply category filter (for mock data)
+    if (!USE_API && selectedCategories.length > 0) {
       result = result.filter((p) => selectedCategories.includes(p.category));
     }
 
+    // Apply price filter
     result = result.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
     );
 
+    // Apply sorting
     switch (sortBy) {
       case 'price-asc':
         result.sort((a, b) => a.price - b.price);
@@ -234,7 +231,7 @@ const StorePage = () => {
         result.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
+        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       case 'newest':
         result.sort((a, b) => b.id - a.id);
