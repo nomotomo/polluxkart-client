@@ -29,17 +29,21 @@ import {
   BreadcrumbSeparator,
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { getProductById, products } from '../data/products';
 import ProductCard from '../components/products/ProductCard';
+import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
 
 const ProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
   const product = getProductById(id);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const inWishlist = product ? isInWishlist(product.id) : false;
 
   if (!product) {
     return (
@@ -216,16 +220,16 @@ const ProductPage = () => {
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="font-heading text-4xl font-bold text-foreground">
-                ${product.price.toFixed(2)}
+                {formatPrice(product.price)}
               </span>
               {product.originalPrice && (
                 <span className="text-xl text-muted-foreground line-through">
-                  ${product.originalPrice.toFixed(2)}
+                  {formatPrice(product.originalPrice)}
                 </span>
               )}
               {discount > 0 && (
                 <Badge variant="secondary" className="bg-success/10 text-success">
-                  Save ${(product.originalPrice - product.price).toFixed(2)}
+                  Save {formatPrice(product.originalPrice - product.price)}
                 </Badge>
               )}
             </div>
@@ -295,11 +299,26 @@ const ProductPage = () => {
               </div>
 
               <div className="flex gap-4">
-                <Button variant="ghost" size="sm" onClick={() => toast.success('Added to wishlist!')}>
-                  <Heart className="mr-2 h-4 w-4" />
-                  Wishlist
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    const added = toggleWishlist(product);
+                    if (added) {
+                      toast.success('Added to wishlist!');
+                    } else {
+                      toast.success('Removed from wishlist');
+                    }
+                  }}
+                  className={inWishlist ? 'text-destructive hover:text-destructive' : ''}
+                >
+                  <Heart className={`mr-2 h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
+                  {inWishlist ? 'In Wishlist' : 'Add to Wishlist'}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => toast.success('Link copied!')}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied!');
+                }}>
                   <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>
