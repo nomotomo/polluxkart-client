@@ -81,9 +81,11 @@ Build a frontend prototype for an e-commerce store named "PolluxKart" with a tec
 ```
 
 ## Testing Status
-- ✅ Unit Tests: 24/24 passing
+- ✅ Unit Tests: 28/28 passing
 - ✅ Frontend E2E: All features tested and working
 - ✅ Out-of-stock: Properly disables purchase buttons
+- ✅ OTP Flow: Send OTP, Enter OTP, Verify works
+- ✅ Search Debounce: 500ms delay before filtering
 
 ## Known Mocked Elements
 - **Backend API**: All API calls fallback to local mock data
