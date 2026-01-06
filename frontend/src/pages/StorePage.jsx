@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
   Search,
@@ -37,6 +37,7 @@ import ProductService from '../services/productService';
 import { products as mockProducts, categories as mockCategories } from '../data/products';
 
 const ITEMS_PER_PAGE = 12;
+const SEARCH_DEBOUNCE_MS = 500;
 
 // Flag to enable/disable API integration (set to true when your backend is running)
 const USE_API = true; // Change to false to use mock data
@@ -46,8 +47,13 @@ const StorePage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [priceRange, setPriceRange] = useState([0, 1500]);
   const [sortBy, setSortBy] = useState('default');
-  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Search states - separate input value from the actual filter value
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [searchFilterValue, setSearchFilterValue] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef(null);
   
   // API data state
   const [products, setProducts] = useState([]);
@@ -61,6 +67,43 @@ const StorePage = () => {
   const [selectedBrandId, setSelectedBrandId] = useState(null);
   const [selectedTypeId, setSelectedTypeId] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
+
+  // Handle search input change with debounce
+  const handleSearchChange = useCallback((value) => {
+    setSearchInputValue(value);
+    
+    // Clear any existing timer
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    
+    // If value is empty, update immediately
+    if (!value) {
+      setSearchFilterValue('');
+      setIsSearching(false);
+      setCurrentPage(1);
+      return;
+    }
+    
+    // Show searching indicator
+    setIsSearching(true);
+    
+    // Set new timer to update filter after delay
+    searchTimerRef.current = setTimeout(() => {
+      setSearchFilterValue(value);
+      setIsSearching(false);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
 
   // Load products from API
   const loadProducts = useCallback(async () => {
@@ -91,7 +134,7 @@ const StorePage = () => {
         selectedBrandId,
         selectedTypeId,
         sortMap[sortBy] || 'default',
-        searchQuery || null
+        null // Search is handled locally via filteredProducts
       );
 
       // Transform API data to match our component format
@@ -125,7 +168,7 @@ const StorePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, selectedBrandId, selectedTypeId, sortBy, searchQuery]);
+  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
 
   // Load brands from API
   const loadBrands = useCallback(async () => {
@@ -163,7 +206,8 @@ const StorePage = () => {
       setSelectedCategories([category]);
     }
     if (search) {
-      setSearchQuery(search);
+      setSearchInputValue(search);
+      setSearchFilterValue(search);
     }
     if (page) {
       setCurrentPage(parseInt(page));
@@ -189,34 +233,31 @@ const StorePage = () => {
 
   // Filter products locally for mock data (API handles filtering server-side)
   const filteredProducts = useMemo(() => {
-    if (USE_API) {
-      // API already filters, just apply local price filter if needed
-      return products.filter(
-        (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
-      );
-    }
-
-    // Local filtering for mock data
+    // Always apply local filtering since API might fail and we fall back to mock data
     let result = [...products];
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    // Apply search filter - use searchFilterValue (the debounced value)
+    if (searchFilterValue) {
+      const query = searchFilterValue.toLowerCase();
       result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query)
+          (p.description && p.description.toLowerCase().includes(query)) ||
+          (p.category && p.category.toLowerCase().includes(query))
       );
     }
 
-    if (selectedCategories.length > 0) {
+    // Apply category filter (for mock data)
+    if (!USE_API && selectedCategories.length > 0) {
       result = result.filter((p) => selectedCategories.includes(p.category));
     }
 
+    // Apply price filter
     result = result.filter(
       (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
     );
 
+    // Apply sorting
     switch (sortBy) {
       case 'price-asc':
         result.sort((a, b) => a.price - b.price);
@@ -225,7 +266,7 @@ const StorePage = () => {
         result.sort((a, b) => b.price - a.price);
         break;
       case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
+        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       case 'newest':
         result.sort((a, b) => b.id - a.id);
@@ -235,7 +276,7 @@ const StorePage = () => {
     }
 
     return result;
-  }, [products, searchQuery, selectedCategories, priceRange, sortBy]);
+  }, [products, searchFilterValue, selectedCategories, priceRange, sortBy]);
 
   // Pagination
   const totalPages = USE_API 
@@ -287,7 +328,12 @@ const StorePage = () => {
     setSelectedBrandId(null);
     setSelectedTypeId(null);
     setPriceRange([0, 1500]);
-    setSearchQuery('');
+    setSearchInputValue('');
+    setSearchFilterValue('');
+    setIsSearching(false);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
     setSortBy('default');
     setCurrentPage(1);
     setSearchParams({});
@@ -301,7 +347,7 @@ const StorePage = () => {
   const activeFiltersCount =
     (USE_API ? (selectedBrandId ? 1 : 0) + (selectedTypeId ? 1 : 0) : selectedCategories.length) +
     (priceRange[0] > 0 || priceRange[1] < 1500 ? 1 : 0) +
-    (searchQuery ? 1 : 0);
+    (searchFilterValue ? 1 : 0);
 
   // Filter Sidebar Content
   const FilterContent = () => (
@@ -314,14 +360,22 @@ const StorePage = () => {
           <Input
             type="search"
             placeholder="Search products..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            value={searchInputValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
+            data-testid="store-search-input"
           />
+          {isSearching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </div>
+        {searchInputValue && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {isSearching ? 'Searching...' : `Showing results for "${searchFilterValue}"`}
+          </p>
+        )}
       </div>
 
       <Separator />

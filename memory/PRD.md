@@ -50,8 +50,15 @@ Build a frontend prototype for an e-commerce store named "PolluxKart" with a tec
 3. **Categories Navigation**: Full dropdown in header with subcategories
 4. **Out-of-Stock Handling**: Disabled buttons and indicator on ProductPage
 5. **Wishlist Integration**: Working add/remove on ProductPage
-6. **Unit Tests**: 24 tests covering currency, products, country codes
-7. **GitHub Actions CI**: Runs tests, lint, build on PR to main/dev
+6. **OTP Verification (MOCKED)**: Phone verification flow with:
+   - Send OTP button
+   - 6-digit OTP input boxes
+   - Verify OTP button
+   - Resend timer (30s countdown)
+   - Mock OTP: 123456 (any 6-digit code works)
+7. **Debounced Search**: Store search waits 500ms before filtering (prevents search on every keystroke)
+8. **Unit Tests**: 28 tests covering currency, products, country codes, debounce hook
+9. **GitHub Actions CI**: Runs tests, lint, build on PR to main/dev
 
 ## File Structure
 ```
@@ -74,13 +81,16 @@ Build a frontend prototype for an e-commerce store named "PolluxKart" with a tec
 ```
 
 ## Testing Status
-- ✅ Unit Tests: 24/24 passing
+- ✅ Unit Tests: 28/28 passing
 - ✅ Frontend E2E: All features tested and working
 - ✅ Out-of-stock: Properly disables purchase buttons
+- ✅ OTP Flow: Send OTP, Enter OTP, Verify works
+- ✅ Search Debounce: 500ms delay before filtering
 
 ## Known Mocked Elements
 - **Backend API**: All API calls fallback to local mock data
 - **Authentication**: Mocked - any credentials work
+- **OTP Verification**: MOCKED - Test OTP is 123456, but any 6-digit code works
 - **Payment**: UI only - no real transactions
 - **Orders**: Stored in localStorage, not persistent
 
