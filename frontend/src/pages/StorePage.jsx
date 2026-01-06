@@ -47,8 +47,11 @@ const StorePage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [priceRange, setPriceRange] = useState([0, 1500]);
   const [sortBy, setSortBy] = useState('default');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Debounce search input - only search after user stops typing for 500ms
+  const searchQuery = useDebounce(searchInput, 500);
   
   // API data state
   const [products, setProducts] = useState([]);
