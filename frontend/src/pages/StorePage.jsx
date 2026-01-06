@@ -328,7 +328,12 @@ const StorePage = () => {
     setSelectedBrandId(null);
     setSelectedTypeId(null);
     setPriceRange([0, 1500]);
-    setSearchInput('');
+    setSearchInputValue('');
+    setSearchFilterValue('');
+    setIsSearching(false);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
     setSortBy('default');
     setCurrentPage(1);
     setSearchParams({});
@@ -342,7 +347,7 @@ const StorePage = () => {
   const activeFiltersCount =
     (USE_API ? (selectedBrandId ? 1 : 0) + (selectedTypeId ? 1 : 0) : selectedCategories.length) +
     (priceRange[0] > 0 || priceRange[1] < 1500 ? 1 : 0) +
-    (searchInput ? 1 : 0);
+    (searchFilterValue ? 1 : 0);
 
   // Filter Sidebar Content
   const FilterContent = () => (
@@ -355,22 +360,20 @@ const StorePage = () => {
           <Input
             type="search"
             placeholder="Search products..."
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-            }}
+            value={searchInputValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
             data-testid="store-search-input"
           />
-          {searchInput && searchInput !== searchQuery && (
+          {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
         </div>
-        {searchInput && (
+        {searchInputValue && (
           <p className="text-xs text-muted-foreground mt-1">
-            {searchInput !== searchQuery ? 'Searching...' : `Showing results for "${searchQuery}"`}
+            {isSearching ? 'Searching...' : `Showing results for "${searchFilterValue}"`}
           </p>
         )}
       </div>
