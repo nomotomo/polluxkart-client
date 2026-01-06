@@ -21,7 +21,10 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': ['warn', { 
+        argsIgnorePattern: '^_', 
+        varsIgnorePattern: '^_|^React$'
+      }],
       'no-console': 'off',
       'no-undef': 'error',
     },
