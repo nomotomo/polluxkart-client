@@ -1,4 +1,4 @@
-import { products, categories, getProductById, getProductsByCategory, searchProducts } from '../data/products';
+import { products, categories, getProductById, getProductsByCategory, searchProducts } from '../src/data/products';
 
 describe('Products Data', () => {
   describe('products array', () => {

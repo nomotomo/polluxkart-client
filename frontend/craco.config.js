@@ -103,4 +103,16 @@ webpackConfig.devServer = (devServerConfig) => {
   return devServerConfig;
 };
 
-module.exports = webpackConfig;
+module.exports = {
+  ...webpackConfig,
+  jest: {
+    configure: (jestConfig) => {
+      jestConfig.roots = ['<rootDir>/src', '<rootDir>/tests'];
+      jestConfig.testMatch = [
+        '<rootDir>/tests/**/*.test.{js,jsx}',
+        '<rootDir>/src/**/*.test.{js,jsx}'
+      ];
+      return jestConfig;
+    },
+  },
+};
