@@ -110,11 +110,19 @@ const ProductPage = () => {
   ];
 
   const handleAddToCart = () => {
+    if (isOutOfStock) {
+      toast.error('This item is currently out of stock');
+      return;
+    }
     addToCart(product, quantity);
     toast.success(`${quantity}x ${product.name} added to cart!`);
   };
 
   const handleBuyNow = () => {
+    if (isOutOfStock) {
+      toast.error('This item is currently out of stock');
+      return;
+    }
     addToCart(product, quantity);
     navigate('/checkout');
   };
