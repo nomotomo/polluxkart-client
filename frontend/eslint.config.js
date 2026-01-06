@@ -5,6 +5,7 @@ export default [
   js.configs.recommended,
   {
     files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/setupTests.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -27,6 +28,20 @@ export default [
       }],
       'no-console': 'off',
       'no-undef': 'error',
+    },
+  },
+  {
+    files: ['src/setupTests.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        ...globals.browser,
+        ...globals.jest,
+        ...globals.node,
+        jest: 'readonly',
+        Element: 'readonly',
+      },
     },
   },
   {
