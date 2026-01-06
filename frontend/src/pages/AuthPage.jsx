@@ -484,12 +484,7 @@ const AuthPage = () => {
                                   <p className="text-sm text-center text-muted-foreground">
                                     Enter 6-digit OTP sent to {loginCountryCode}{loginData.phone}
                                   </p>
-                                  <OtpInput
-                                    otp={loginOtp}
-                                    setOtp={setLoginOtp}
-                                    refs={loginOtpRefs}
-                                    disabled={verifyingOtp}
-                                  />
+                                  {renderOtpInputs(loginOtp, setLoginOtp, loginOtpRefs, verifyingOtp, 'login-otp')}
                                   <Button
                                     type="button"
                                     className="w-full"
