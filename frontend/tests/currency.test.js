@@ -1,4 +1,4 @@
-import { formatPrice, CURRENCY_SYMBOL, convertToINR } from '../utils/currency';
+import { formatPrice, CURRENCY_SYMBOL, convertToINR } from '../src/utils/currency';
 
 describe('Currency Utils', () => {
   describe('formatPrice', () => {

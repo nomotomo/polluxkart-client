@@ -1,4 +1,4 @@
-import { countryCodes, getCountryByCode } from '../data/countryCodes';
+import { countryCodes, getCountryByCode } from '../src/data/countryCodes';
 
 describe('Country Codes', () => {
   describe('countryCodes array', () => {
