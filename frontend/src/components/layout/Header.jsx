@@ -14,12 +14,14 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 import Logo from '../brand/Logo';
 
 const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { cartCount } = useCart();
+  const { wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,8 +100,21 @@ const Header = () => {
             </Button>
 
             {/* Wishlist */}
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative hidden sm:flex"
+              onClick={() => navigate('/wishlist')}
+            >
               <Heart className="h-5 w-5" />
+              {wishlistCount > 0 && (
+                <Badge
+                  variant="default"
+                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-destructive text-destructive-foreground"
+                >
+                  {wishlistCount > 9 ? '9+' : wishlistCount}
+                </Badge>
+              )}
             </Button>
 
             {/* Cart */}
@@ -135,12 +150,16 @@ const Header = () => {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
                     <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="text-xs text-muted-foreground">{user.email || user.phone}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/orders')}>
                     <Package className="mr-2 h-4 w-4" />
                     My Orders
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/wishlist')}>
+                    <Heart className="mr-2 h-4 w-4" />
+                    Wishlist
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/cart')}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
@@ -190,6 +209,20 @@ const Header = () => {
                         {link.name}
                       </Link>
                     ))}
+                    <Link
+                      to="/wishlist"
+                      className={`text-base font-medium transition-colors hover:text-primary flex items-center gap-2 ${
+                        isActive('/wishlist') ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      <Heart className="h-4 w-4" />
+                      Wishlist
+                      {wishlistCount > 0 && (
+                        <Badge variant="destructive\" className="ml-auto">
+                          {wishlistCount}
+                        </Badge>
+                      )}
+                    </Link>
                   </nav>
                   {!isAuthenticated && (
                     <Button onClick={() => navigate('/auth')} className="w-full">
