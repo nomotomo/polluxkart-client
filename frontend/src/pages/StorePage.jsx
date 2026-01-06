@@ -276,7 +276,7 @@ const StorePage = () => {
     }
 
     return result;
-  }, [products, searchQuery, selectedCategories, priceRange, sortBy]);
+  }, [products, searchFilterValue, selectedCategories, priceRange, sortBy]);
 
   // Pagination
   const totalPages = USE_API 
