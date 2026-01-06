@@ -167,7 +167,7 @@ const StorePage = () => {
       setSelectedCategories([category]);
     }
     if (search) {
-      setSearchQuery(search);
+      setSearchInput(search);
     }
     if (page) {
       setCurrentPage(parseInt(page));
