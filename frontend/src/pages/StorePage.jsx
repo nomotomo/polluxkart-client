@@ -191,6 +191,11 @@ const StorePage = () => {
     loadProducts();
   }, [loadProducts]);
 
+  // Reset page when debounced search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   // Filter products locally for mock data (API handles filtering server-side)
   const filteredProducts = useMemo(() => {
     if (USE_API) {
