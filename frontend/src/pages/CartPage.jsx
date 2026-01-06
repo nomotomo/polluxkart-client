@@ -14,6 +14,7 @@ import {
   BreadcrumbSeparator,
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
+import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
 
 const CartPage = () => {
@@ -22,8 +23,8 @@ const CartPage = () => {
   const [promoCode, setPromoCode] = React.useState('');
   const [discount, setDiscount] = React.useState(0);
 
-  const shipping = cartTotal > 100 ? 0 : 9.99;
-  const tax = cartTotal * 0.08;
+  const shipping = cartTotal > 500 ? 0 : 49;
+  const tax = cartTotal * 0.18; // 18% GST
   const finalTotal = cartTotal - discount + shipping + tax;
 
   const handleApplyPromo = () => {
