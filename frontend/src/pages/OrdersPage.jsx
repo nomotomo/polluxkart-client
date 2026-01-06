@@ -9,6 +9,8 @@ import {
   ShoppingBag,
   MapPin,
   CreditCard,
+  RefreshCw,
+  ShoppingCart,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -24,10 +26,14 @@ import {
   BreadcrumbSeparator,
 } from '../components/ui/breadcrumb';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import { formatPrice } from '../utils/currency';
+import { toast } from 'sonner';
 
 const OrdersPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
@@ -35,6 +41,24 @@ const OrdersPage = () => {
     const savedOrders = JSON.parse(localStorage.getItem('polluxkart-orders') || '[]');
     setOrders(savedOrders.reverse()); // Most recent first
   }, []);
+
+  const handleReorder = (order) => {
+    // Add all items from the order to cart
+    order.items.forEach(item => {
+      addToCart({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        category: item.category || 'General',
+        rating: item.rating || 4.5,
+        reviews: item.reviews || 100,
+        inStock: true,
+      }, item.quantity);
+    });
+    toast.success(`${order.items.length} items added to cart!`);
+    navigate('/cart');
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -67,7 +91,7 @@ const OrdersPage = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -175,6 +199,7 @@ const OrdersPage = () => {
                 getStatusColor={getStatusColor}
                 getStatusIcon={getStatusIcon}
                 formatDate={formatDate}
+                onReorder={handleReorder}
               />
             ))}
           </TabsContent>
@@ -189,6 +214,7 @@ const OrdersPage = () => {
                   getStatusColor={getStatusColor}
                   getStatusIcon={getStatusIcon}
                   formatDate={formatDate}
+                  onReorder={handleReorder}
                 />
               ))}
           </TabsContent>
@@ -203,6 +229,7 @@ const OrdersPage = () => {
                   getStatusColor={getStatusColor}
                   getStatusIcon={getStatusIcon}
                   formatDate={formatDate}
+                  onReorder={handleReorder}
                 />
               ))}
           </TabsContent>
@@ -212,7 +239,7 @@ const OrdersPage = () => {
   );
 };
 
-const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate }) => {
+const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate, onReorder }) => {
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -223,13 +250,24 @@ const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate }) => {
               Placed on {formatDate(order.createdAt)}
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={`${getStatusColor(order.status)} capitalize w-fit`}
-          >
-            {getStatusIcon(order.status)}
-            <span className="ml-1">{order.status}</span>
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge
+              variant="outline"
+              className={`${getStatusColor(order.status)} capitalize w-fit`}
+            >
+              {getStatusIcon(order.status)}
+              <span className="ml-1">{order.status}</span>
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onReorder(order)}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reorder
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -255,9 +293,19 @@ const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate }) => {
                 </Link>
                 <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                 <p className="text-sm font-medium text-foreground">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  {formatPrice(item.price * item.quantity)}
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                onClick={() => {
+                  onReorder({ items: [item] });
+                }}
+              >
+                <ShoppingCart className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -297,7 +345,7 @@ const OrderCard = ({ order, getStatusColor, getStatusIcon, formatDate }) => {
               <Package className="h-4 w-4 text-primary" />
               Order Total
             </div>
-            <p className="text-lg font-bold text-primary">${order.total.toFixed(2)}</p>
+            <p className="text-lg font-bold text-primary">{formatPrice(order.total)}</p>
           </div>
         </div>
 
