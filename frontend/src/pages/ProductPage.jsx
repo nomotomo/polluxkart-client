@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Star,
@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -30,20 +31,110 @@ import {
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { getProductById, products } from '../data/products';
+import ProductService from '../services/productService';
+import { getProductById as getMockProductById, products as mockProducts } from '../data/products';
 import ProductCard from '../components/products/ProductCard';
 import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
+
+// Flag to enable/disable API integration
+const USE_API = true;
 
 const ProductPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const product = getProductById(id);
+  
+  const [product, setProduct] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  
   const inWishlist = product ? isInWishlist(product.id) : false;
+
+  // Fetch product from API
+  const fetchProduct = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!USE_API) {
+      const mockProduct = getMockProductById(id);
+      setProduct(mockProduct);
+      if (mockProduct) {
+        setRelatedProducts(
+          mockProducts
+            .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
+            .slice(0, 4)
+        );
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const productData = await ProductService.getProductById(id);
+      if (!productData) {
+        // Try mock data fallback
+        const mockProduct = getMockProductById(id);
+        setProduct(mockProduct);
+        if (mockProduct) {
+          setRelatedProducts(
+            mockProducts
+              .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
+              .slice(0, 4)
+          );
+        }
+      } else {
+        setProduct(productData);
+        // Fetch related products
+        try {
+          const related = await ProductService.getAllProducts(1, 4, productData.categoryId);
+          setRelatedProducts(
+            (related.data || []).filter((p) => p.id !== productData.id).slice(0, 4)
+          );
+        } catch {
+          setRelatedProducts([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      // Fallback to mock data
+      const mockProduct = getMockProductById(id);
+      if (mockProduct) {
+        setProduct(mockProduct);
+        setRelatedProducts(
+          mockProducts
+            .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
+            .slice(0, 4)
+        );
+      } else {
+        setError('Failed to load product');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchProduct();
+    setSelectedImage(0);
+    setQuantity(1);
+  }, [fetchProduct]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-muted-foreground">Loading product...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
