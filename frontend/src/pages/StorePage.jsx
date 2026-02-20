@@ -165,10 +165,10 @@ const StorePage = () => {
     if (!USE_API) return;
 
     try {
-      const response = await ProductService.getAllTypes();
+      const response = await ProductService.getAllCategories();
       setTypes(response || []);
     } catch (err) {
-      console.error('Failed to load types:', err);
+      console.error('Failed to load categories:', err);
     }
   }, []);
 
