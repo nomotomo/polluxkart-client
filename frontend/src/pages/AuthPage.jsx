@@ -198,7 +198,7 @@ const AuthPage = () => {
       toast.success('Welcome back!');
       navigate('/');
     } catch (error) {
-      toast.error('Login failed. Please try again.');
+      toast.error(error.message || 'Login failed. Please try again.');
     }
   };
 
@@ -242,7 +242,7 @@ const AuthPage = () => {
       toast.success('Account created successfully!');
       navigate('/');
     } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      toast.error(error.message || 'Signup failed. Please try again.');
     }
   };
 
