@@ -2,9 +2,7 @@
 Orders API tests - Requires authentication
 """
 import pytest
-import os
-
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+from .conftest import BASE_URL
 
 
 class TestOrders:

@@ -2,10 +2,8 @@
 Authentication API tests - Register and Login endpoints
 """
 import pytest
-import os
 import uuid
-
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+from .conftest import BASE_URL
 
 
 class TestAuthRegister:

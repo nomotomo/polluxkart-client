@@ -2,9 +2,7 @@
 Health check API tests - Run first to verify backend is up
 """
 import pytest
-import os
-
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
+from .conftest import BASE_URL
 
 
 class TestHealthCheck:
