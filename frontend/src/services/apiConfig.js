@@ -53,6 +53,21 @@ export const API_CONFIG = {
       get: (productId) => `/api/inventory/${productId}`,
       available: (productId) => `/api/inventory/${productId}/available`,
     },
+    // Orders
+    orders: {
+      list: '/orders',
+      create: '/orders',
+      single: (id) => `/orders/${id}`,
+      byNumber: (number) => `/orders/number/${number}`,
+      cancel: (id) => `/orders/${id}/cancel`,
+    },
+    // Payments
+    payments: {
+      createOrder: '/payments/create-order',
+      verify: '/payments/verify',
+    },
+    // Health
+    health: '/health',
   },
 };
 

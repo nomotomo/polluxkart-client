@@ -43,7 +43,24 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
   }, []);
 
-  const login = async (identifier, password, method = 'email') => {
+  // Check for existing token on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getAuthToken();
+      if (token && !user) {
+        // We have a token but no user data - try to restore from localStorage
+        const savedUser = localStorage.getItem('polluxkart-user');
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, [user]);
+
+  const login = useCallback(async (identifier, password) => {
     setIsLoading(true);
     try {
       const response = await AuthService.login(identifier, password);
@@ -56,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signup = async (name, email, phone, password) => {
+  const signup = useCallback(async (name, email, phone, password) => {
     setIsLoading(true);
     try {
       const response = await AuthService.register(name, phone, password, email);
@@ -88,6 +105,7 @@ export const AuthProvider = ({ children }) => {
         login,
         signup,
         logout,
+        clearError,
       }}
     >
       {children}

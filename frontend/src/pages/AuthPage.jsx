@@ -194,7 +194,7 @@ const AuthPage = () => {
     }
     
     try {
-      await login(identifier, loginData.password, loginMethod);
+      await login(identifier, loginData.password);
       toast.success('Welcome back!');
       navigate('/');
     } catch (error) {

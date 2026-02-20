@@ -4,7 +4,7 @@ import API_CONFIG, { getAuthHeaders } from './apiConfig';
 /**
  * Fetch all products with pagination, filtering, sorting, and search
  */
-export const getAllProducts = async (
+export const getProducts = async ({
   page = 1,
   pageSize = 12,
   categoryId = null,
@@ -44,6 +44,11 @@ export const getAllProducts = async (
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    throw error;
+  }
+};
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -61,7 +66,7 @@ export const getAllProducts = async (
       totalPages: data.total_pages || 1,
     };
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching categories:', error);
     throw error;
   }
 };
@@ -161,7 +166,7 @@ export const getAllBrands = async () => {
 /**
  * Fetch single product by ID
  */
-export const getProductById = async (id) => {
+export const addProductReview = async (productId, reviewData) => {
   try {
     const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.products.getById(id)}`;
     
@@ -181,7 +186,7 @@ export const getProductById = async (id) => {
     console.log('Product response:', data);
     return transformProduct(data);
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('Error adding review:', error);
     throw error;
   }
 };
@@ -241,6 +246,13 @@ export const addProductReview = async (productId, rating, comment) => {
 
 // Export all functions as a service object
 const ProductService = {
+  getProducts,
+  getProductById,
+  getCategories,
+  getBrands,
+  getProductReviews,
+  addProductReview,
+  // Legacy methods
   getAllProducts,
   getAllCategories,
   getAllTypes,
