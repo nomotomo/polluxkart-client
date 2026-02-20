@@ -119,46 +119,24 @@ const StorePage = () => {
     setError(null);
 
     try {
-      // Map sort options to API format
-      const sortMap = {
-        'default': 'default',
-        'price-asc': 'priceAsc',
-        'price-desc': 'priceDesc',
-        'rating': 'name', // or your API's rating sort
-        'newest': 'name',
-      };
-
+      // Get the brand name if selected
+      const selectedBrand = selectedBrandId ? brands.find(b => b.id === selectedBrandId)?.name : null;
+      
       const response = await ProductService.getAllProducts(
         currentPage,
         ITEMS_PER_PAGE,
-        selectedBrandId,
-        selectedTypeId,
-        sortMap[sortBy] || 'default',
-        null // Search is handled locally via filteredProducts
+        selectedTypeId, // categoryId
+        selectedBrand,  // brand name
+        sortBy,
+        null, // Search is handled locally via filteredProducts
+        priceRange[0] > 0 ? priceRange[0] : null, // minPrice
+        priceRange[1] < 1500 ? priceRange[1] : null // maxPrice
       );
 
-      // Transform API data to match our component format
-      const transformedProducts = (response.data || []).map(product => ({
-        id: product.id,
-        name: product.name,
-        category: product.type?.name || product.typeName || 'General',
-        price: product.price,
-        originalPrice: product.originalPrice || null,
-        rating: product.rating || 4.5,
-        reviews: product.reviews || Math.floor(Math.random() * 1000) + 100,
-        image: product.imageFile || product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-        images: product.images || [product.imageFile || product.image],
-        description: product.description || product.summary || '',
-        features: product.features || [],
-        inStock: product.inStock !== false,
-        badge: product.badge || null,
-        // Keep original data for API operations
-        _original: product,
-      }));
-
-      setProducts(transformedProducts);
-      setTotalCount(response.count || transformedProducts.length);
-      console.log('Loaded products:', transformedProducts);
+      // ProductService already transforms the data
+      setProducts(response.data || []);
+      setTotalCount(response.count || response.data?.length || 0);
+      console.log('Loaded products:', response.data);
     } catch (err) {
       console.error('Failed to load products:', err);
       setError('Failed to load products. Using offline data.');
@@ -168,7 +146,7 @@ const StorePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
+  }, [currentPage, selectedBrandId, selectedTypeId, sortBy, priceRange, brands]);
 
   // Load brands from API
   const loadBrands = useCallback(async () => {
