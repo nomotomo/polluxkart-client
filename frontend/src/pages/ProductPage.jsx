@@ -54,6 +54,40 @@ const ProductPage = () => {
 
   // Load product data
   useEffect(() => {
+    // Mock reviews data (fallback) - defined inside effect to avoid dependency warning
+    const fallbackReviews = [
+      {
+        id: 1,
+        user_name: 'Sarah M.',
+        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+        rating: 5,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        title: 'Absolutely amazing product!',
+        comment: 'Exceeded my expectations in every way. The quality is outstanding and it arrived quickly.',
+        helpful_count: 24,
+      },
+      {
+        id: 2,
+        user_name: 'James K.',
+        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=James',
+        rating: 4,
+        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        title: 'Great value for money',
+        comment: 'Very happy with this purchase. Works exactly as described. Would recommend to others.',
+        helpful_count: 18,
+      },
+      {
+        id: 3,
+        user_name: 'Emily R.',
+        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily',
+        rating: 5,
+        created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        title: 'Perfect!',
+        comment: 'This is exactly what I was looking for. The design is sleek and the functionality is top-notch.',
+        helpful_count: 31,
+      },
+    ];
+
     const loadProduct = async () => {
       setIsLoading(true);
       setError(null);

@@ -76,6 +76,7 @@ const StorePage = () => {
       setDebouncedSearch(search);
     }
     if (page) setCurrentPage(parseInt(page, 10));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   // Debounce search input
