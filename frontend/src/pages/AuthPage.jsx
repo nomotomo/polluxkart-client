@@ -242,7 +242,7 @@ const AuthPage = () => {
       toast.success('Account created successfully!');
       navigate('/');
     } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      toast.error(error.message || 'Signup failed. Please try again.');
     }
   };
 
