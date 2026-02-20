@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AuthService from '../services/authService';
+import { getAuthToken, removeAuthToken } from '../services/apiConfig';
 
 const AuthContext = createContext();
 
@@ -12,11 +14,14 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
+    // Check localStorage for cached user data
     const savedUser = localStorage.getItem('polluxkart-user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Save user to localStorage whenever it changes
   useEffect(() => {
     if (user) {
       localStorage.setItem('polluxkart-user', JSON.stringify(user));
@@ -25,53 +30,97 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
-  const login = async (identifier, password, method = 'email') => {
+  // Check for existing token on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getAuthToken();
+      if (token && !user) {
+        // We have a token but no user data - try to restore from localStorage
+        const savedUser = localStorage.getItem('polluxkart-user');
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        }
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, [user]);
+
+  const login = useCallback(async (identifier, password) => {
     setIsLoading(true);
-    // Mock login - simulating API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setError(null);
     
-    const isEmail = method === 'email';
-    const mockUser = {
-      id: '1',
-      name: isEmail ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-      email: isEmail ? identifier : null,
-      phone: isEmail ? null : identifier,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${identifier}`,
-    };
-    setUser(mockUser);
-    setIsLoading(false);
-    return mockUser;
-  };
+    try {
+      const response = await AuthService.login(identifier, password);
+      const userData = {
+        id: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        phone: response.user.phone,
+        avatar: response.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${response.user.name}`,
+      };
+      setUser(userData);
+      return userData;
+    } catch (err) {
+      const errorMessage = err.message || 'Login failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const signup = async (name, email, phone, password) => {
+  const signup = useCallback(async (name, email, phone, password) => {
     setIsLoading(true);
-    // Mock signup - simulating API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const mockUser = {
-      id: Date.now().toString(),
-      name,
-      email: email || null,
-      phone,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
-    };
-    setUser(mockUser);
-    setIsLoading(false);
-    return mockUser;
-  };
+    setError(null);
+    
+    try {
+      const response = await AuthService.register({
+        name,
+        email: email || undefined,
+        phone,
+        password,
+      });
+      const userData = {
+        id: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        phone: response.user.phone,
+        avatar: response.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
+      };
+      setUser(userData);
+      return userData;
+    } catch (err) {
+      const errorMessage = err.message || 'Registration failed';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
+    AuthService.logout();
     setUser(null);
-  };
+    setError(null);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && !!getAuthToken(),
+        error,
         login,
         signup,
         logout,
+        clearError,
       }}
     >
       {children}

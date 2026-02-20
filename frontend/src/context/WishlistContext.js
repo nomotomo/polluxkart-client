@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import WishlistService from '../services/wishlistService';
+import { useAuth } from './AuthContext';
 
 const WishlistContext = createContext();
 
@@ -11,44 +13,98 @@ export const useWishlist = () => {
 };
 
 export const WishlistProvider = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
   const [wishlistItems, setWishlistItems] = useState(() => {
     const savedWishlist = localStorage.getItem('polluxkart-wishlist');
     return savedWishlist ? JSON.parse(savedWishlist) : [];
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
+  // Save to localStorage for offline/guest support
   useEffect(() => {
     localStorage.setItem('polluxkart-wishlist', JSON.stringify(wishlistItems));
   }, [wishlistItems]);
 
-  const addToWishlist = (product) => {
-    setWishlistItems(prev => {
-      const exists = prev.find(item => item.id === product.id);
-      if (exists) return prev;
-      return [...prev, product];
-    });
-  };
+  // Sync with backend when user logs in
+  useEffect(() => {
+    const syncWishlist = async () => {
+      if (isAuthenticated && WishlistService.canUseBackendWishlist()) {
+        setIsSyncing(true);
+        try {
+          const products = await WishlistService.getWishlistProducts();
+          if (products && products.length > 0) {
+            // Transform backend products to frontend format
+            const items = products.map(product => ({
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              originalPrice: product.original_price,
+              image: product.image || (product.images && product.images[0]),
+              category: product.category_name,
+              rating: product.rating,
+              inStock: product.in_stock,
+            }));
+            setWishlistItems(items);
+          }
+        } catch (err) {
+          console.error('Failed to sync wishlist:', err);
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    };
 
-  const removeFromWishlist = (productId) => {
+    syncWishlist();
+  }, [isAuthenticated, user?.id]);
+
+  const addToWishlist = useCallback(async (product) => {
+    // Check if already exists
+    const exists = wishlistItems.find(item => item.id === product.id);
+    if (exists) return;
+
+    // Optimistically update local state
+    setWishlistItems(prev => [...prev, product]);
+
+    // Sync with backend if authenticated
+    if (isAuthenticated && WishlistService.canUseBackendWishlist()) {
+      try {
+        await WishlistService.addToWishlist(product.id);
+      } catch (err) {
+        console.error('Failed to sync add to wishlist:', err);
+      }
+    }
+  }, [isAuthenticated, wishlistItems]);
+
+  const removeFromWishlist = useCallback(async (productId) => {
     setWishlistItems(prev => prev.filter(item => item.id !== productId));
-  };
 
-  const isInWishlist = (productId) => {
+    if (isAuthenticated && WishlistService.canUseBackendWishlist()) {
+      try {
+        await WishlistService.removeFromWishlist(productId);
+      } catch (err) {
+        console.error('Failed to sync remove from wishlist:', err);
+      }
+    }
+  }, [isAuthenticated]);
+
+  const isInWishlist = useCallback((productId) => {
     return wishlistItems.some(item => item.id === productId);
-  };
+  }, [wishlistItems]);
 
-  const toggleWishlist = (product) => {
+  const toggleWishlist = useCallback(async (product) => {
     if (isInWishlist(product.id)) {
-      removeFromWishlist(product.id);
+      await removeFromWishlist(product.id);
       return false;
     } else {
-      addToWishlist(product);
+      await addToWishlist(product);
       return true;
     }
-  };
+  }, [isInWishlist, removeFromWishlist, addToWishlist]);
 
-  const clearWishlist = () => {
+  const clearWishlist = useCallback(() => {
     setWishlistItems([]);
-  };
+  }, []);
 
   const wishlistCount = wishlistItems.length;
 
@@ -62,6 +118,8 @@ export const WishlistProvider = ({ children }) => {
         toggleWishlist,
         clearWishlist,
         wishlistCount,
+        isLoading,
+        isSyncing,
       }}
     >
       {children}
