@@ -45,7 +45,7 @@ const ProductCard = ({ product }) => {
     : 0;
 
   return (
-    <Link to={`/product/${product.id}`}>
+    <Link to={`/product/${product.id}`} data-testid="product-card">
       <Card className={`group relative overflow-hidden border border-border/50 bg-card transition-all duration-300 ${
         isOutOfStock 
           ? 'opacity-75 hover:opacity-90' 
