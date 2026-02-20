@@ -1,32 +1,120 @@
 // API Configuration for PolluxKart
-// Automatically switches between local, dev, and production environments
+// Uses the backend URL from environment variables
 
-const getApiUrl = () => {
-  const hostname = window.location.hostname;
-  
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8010/';
-  } else if (hostname.includes('dev') || hostname.includes('staging')) {
-    return 'https://api.dev.com/';
-  } else {
-    return 'https://api.polluxkart.com/';
-  }
-};
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 export const API_CONFIG = {
-  baseUrl: getApiUrl(),
+  baseUrl: `${API_BASE_URL}/api`,
   endpoints: {
-    catalog: {
-      getAllProducts: 'Catalog/GetAllProducts',
-      getAllBrands: 'Catalog/GetAllBrands',
-      getAllTypes: 'Catalog/GetAllTypes',
-      getProductById: (id) => `Catalog/${id}`,
+    // Auth
+    auth: {
+      register: '/auth/register',
+      login: '/auth/login',
+      me: '/auth/me',
     },
-    basket: {
-      getBasket: (userName) => `Basket/${userName}`,
-      updateBasket: 'Basket',
+    // Products
+    products: {
+      list: '/products',
+      single: (id) => `/products/${id}`,
+      categories: '/products/categories',
+      brands: '/products/brands',
+      reviews: (id) => `/products/${id}/reviews`,
     },
+    // Cart
+    cart: {
+      get: '/cart',
+      addItem: '/cart/items',
+      updateItem: (productId) => `/cart/items/${productId}`,
+      removeItem: (productId) => `/cart/items/${productId}`,
+      clear: '/cart',
+    },
+    // Wishlist
+    wishlist: {
+      get: '/wishlist',
+      products: '/wishlist/products',
+      addItem: '/wishlist/items',
+      removeItem: (productId) => `/wishlist/items/${productId}`,
+      check: (productId) => `/wishlist/check/${productId}`,
+    },
+    // Orders
+    orders: {
+      list: '/orders',
+      create: '/orders',
+      single: (id) => `/orders/${id}`,
+      byNumber: (number) => `/orders/number/${number}`,
+      cancel: (id) => `/orders/${id}/cancel`,
+    },
+    // Payments
+    payments: {
+      createOrder: '/payments/create-order',
+      verify: '/payments/verify',
+    },
+    // Health
+    health: '/health',
   },
+};
+
+// Auth token management
+const TOKEN_KEY = 'polluxkart-token';
+
+export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
+export const setAuthToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+export const removeAuthToken = () => localStorage.removeItem(TOKEN_KEY);
+
+// Create headers with optional auth
+export const getHeaders = (includeAuth = true) => {
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (includeAuth) {
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  
+  return headers;
+};
+
+// Generic fetch wrapper with error handling
+export const apiFetch = async (endpoint, options = {}) => {
+  const url = `${API_CONFIG.baseUrl}${endpoint}`;
+  const { includeAuth = true, ...fetchOptions } = options;
+  
+  const config = {
+    ...fetchOptions,
+    headers: {
+      ...getHeaders(includeAuth),
+      ...fetchOptions.headers,
+    },
+  };
+  
+  try {
+    const response = await fetch(url, config);
+    
+    // Handle no content responses
+    if (response.status === 204) {
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      const error = new Error(data.detail || data.message || 'API request failed');
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    
+    return data;
+  } catch (error) {
+    if (error.status) {
+      throw error;
+    }
+    console.error('API fetch error:', error);
+    throw new Error(error.message || 'Network error');
+  }
 };
 
 export default API_CONFIG;
