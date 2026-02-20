@@ -148,7 +148,7 @@ const ProductPage = () => {
         } catch (reviewErr) {
           console.error('Failed to load reviews:', reviewErr);
           // Use mock reviews as fallback
-          setReviews(mockReviews);
+          setReviews(fallbackReviews);
         }
       } catch (err) {
         console.error('Failed to load product:', err);
@@ -161,7 +161,7 @@ const ProductPage = () => {
     loadProduct();
   }, [id]);
 
-  // Mock reviews data (fallback)
+  // Mock reviews data for display fallback
   const mockReviews = [
     {
       id: 1,
