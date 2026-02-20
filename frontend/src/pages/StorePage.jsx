@@ -33,14 +33,9 @@ import {
 } from '../components/ui/breadcrumb';
 import ProductCard from '../components/products/ProductCard';
 import ProductService from '../services/productService';
-// Fallback mock data
-import { products as mockProducts, categories as mockCategories } from '../data/products';
 
 const ITEMS_PER_PAGE = 12;
-const SEARCH_DEBOUNCE_MS = 500;
-
-// Flag to enable/disable API integration (set to true when your backend is running)
-const USE_API = true; // Change to false to use mock data
+const DEBOUNCE_DELAY = 500; // milliseconds
 
 const StorePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,305 +44,196 @@ const StorePage = () => {
   const [sortBy, setSortBy] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Search states - separate input value from the actual filter value
-  const [searchInputValue, setSearchInputValue] = useState('');
-  const [searchFilterValue, setSearchFilterValue] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimerRef = useRef(null);
+  // Search state - simplified: only track input and debounced query
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceTimerRef = useRef(null);
   
   // API data state
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
-  const [types, setTypes] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Selected filters
-  const [selectedBrandId, setSelectedBrandId] = useState(null);
-  const [selectedTypeId, setSelectedTypeId] = useState(null);
-  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedBrand, setSelectedBrand] = useState(null);
 
-  // Handle search input change with debounce
-  const handleSearchChange = useCallback((value) => {
-    setSearchInputValue(value);
-    
-    // Clear any existing timer
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-    }
-    
-    // If value is empty, update immediately
-    if (!value) {
-      setSearchFilterValue('');
-      setIsSearching(false);
-      setCurrentPage(1);
-      return;
-    }
-    
-    // Show searching indicator
-    setIsSearching(true);
-    
-    // Set new timer to update filter after delay
-    searchTimerRef.current = setTimeout(() => {
-      setSearchFilterValue(value);
-      setIsSearching(false);
-      setCurrentPage(1);
-    }, SEARCH_DEBOUNCE_MS);
-  }, []);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Load products from API
-  const loadProducts = useCallback(async () => {
-    if (!USE_API) {
-      // Use mock data
-      setProducts(mockProducts);
-      setTotalCount(mockProducts.length);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Map sort options to API format
-      const sortMap = {
-        'default': 'default',
-        'price-asc': 'priceAsc',
-        'price-desc': 'priceDesc',
-        'rating': 'name', // or your API's rating sort
-        'newest': 'name',
-      };
-
-      const response = await ProductService.getAllProducts(
-        currentPage,
-        ITEMS_PER_PAGE,
-        selectedBrandId,
-        selectedTypeId,
-        sortMap[sortBy] || 'default',
-        null // Search is handled locally via filteredProducts
-      );
-
-      // Transform API data to match our component format
-      const transformedProducts = (response.data || []).map(product => ({
-        id: product.id,
-        name: product.name,
-        category: product.type?.name || product.typeName || 'General',
-        price: product.price,
-        originalPrice: product.originalPrice || null,
-        rating: product.rating || 4.5,
-        reviews: product.reviews || Math.floor(Math.random() * 1000) + 100,
-        image: product.imageFile || product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-        images: product.images || [product.imageFile || product.image],
-        description: product.description || product.summary || '',
-        features: product.features || [],
-        inStock: product.inStock !== false,
-        badge: product.badge || null,
-        // Keep original data for API operations
-        _original: product,
-      }));
-
-      setProducts(transformedProducts);
-      setTotalCount(response.count || transformedProducts.length);
-      console.log('Loaded products:', transformedProducts);
-    } catch (err) {
-      console.error('Failed to load products:', err);
-      setError('Failed to load products. Using offline data.');
-      // Fallback to mock data
-      setProducts(mockProducts);
-      setTotalCount(mockProducts.length);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
-
-  // Load brands from API
-  const loadBrands = useCallback(async () => {
-    if (!USE_API) return;
-
-    try {
-      const response = await ProductService.getAllBrands();
-      setBrands(response || []);
-    } catch (err) {
-      console.error('Failed to load brands:', err);
-    }
-  }, []);
-
-  // Load types/categories from API
-  const loadTypes = useCallback(async () => {
-    if (!USE_API) return;
-
-    try {
-      const response = await ProductService.getAllTypes();
-      setTypes(response || []);
-    } catch (err) {
-      console.error('Failed to load types:', err);
-    }
-  }, []);
-
-  // Initialize from URL params
+  // Initialize from URL params on mount
   useEffect(() => {
     const category = searchParams.get('category');
+    const brand = searchParams.get('brand');
     const search = searchParams.get('search');
     const page = searchParams.get('page');
-    const typeId = searchParams.get('typeId');
-    const brandId = searchParams.get('brandId');
     
-    if (category) {
-      setSelectedCategories([category]);
-    }
+    if (category) setSelectedCategory(category);
+    if (brand) setSelectedBrand(brand);
     if (search) {
-      setSearchInputValue(search);
-      setSearchFilterValue(search);
+      setSearchInput(search);
+      setDebouncedSearch(search);
     }
-    if (page) {
-      setCurrentPage(parseInt(page));
-    }
-    if (typeId) {
-      setSelectedTypeId(typeId);
-    }
-    if (brandId) {
-      setSelectedBrandId(brandId);
-    }
-  }, [searchParams]);
+    if (page) setCurrentPage(parseInt(page, 10));
+  }, []); // Only run on mount
 
-  // Load initial data
+  // Debounce search input
   useEffect(() => {
-    loadBrands();
-    loadTypes();
-  }, [loadBrands, loadTypes]);
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // If empty, update immediately
+    if (searchInput === '') {
+      setDebouncedSearch('');
+      return;
+    }
+    
+    // Set new timer
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, DEBOUNCE_DELAY);
+    
+    // Cleanup on unmount or when searchInput changes
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchInput]);
+
+  // Load categories and brands on mount
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const [categoriesData, brandsData] = await Promise.all([
+          ProductService.getCategories(),
+          ProductService.getBrands(),
+        ]);
+        setCategories(categoriesData || []);
+        setBrands(brandsData || []);
+      } catch (err) {
+        console.error('Failed to load metadata:', err);
+      }
+    };
+    loadMetadata();
+  }, []);
 
   // Load products when filters change
   useEffect(() => {
+    const loadProducts = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Map frontend sort values to backend API format
+        const sortMap = {
+          'default': 'default',
+          'price-asc': 'price_asc',
+          'price-desc': 'price_desc',
+          'rating': 'rating',
+          'newest': 'newest',
+        };
+
+        const response = await ProductService.getProducts({
+          page: currentPage,
+          pageSize: ITEMS_PER_PAGE,
+          categoryId: selectedCategory,
+          brand: selectedBrand,
+          search: debouncedSearch || null,
+          minPrice: priceRange[0] > 0 ? priceRange[0] : null,
+          maxPrice: priceRange[1] < 1500 ? priceRange[1] : null,
+          sortBy: sortMap[sortBy] || 'default',
+        });
+
+        // Transform API data to frontend format
+        const transformedProducts = (response.products || []).map(product => ({
+          id: product.id,
+          name: product.name,
+          category: product.category_name || 'General',
+          price: product.price,
+          originalPrice: product.original_price,
+          rating: product.rating || 0,
+          reviews: product.review_count || 0,
+          image: product.image || (product.images && product.images[0]) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+          images: product.images || [],
+          description: product.description || '',
+          features: product.features || [],
+          inStock: product.in_stock !== false,
+          badge: product.original_price && product.original_price > product.price ? 'Sale' : null,
+          brand: product.brand,
+        }));
+
+        setProducts(transformedProducts);
+        setTotalProducts(response.total || 0);
+        setTotalPages(response.total_pages || 1);
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        setError('Failed to load products. Please try again.');
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     loadProducts();
-  }, [loadProducts]);
+  }, [currentPage, selectedCategory, selectedBrand, debouncedSearch, priceRange, sortBy]);
 
-  // Filter products locally for mock data (API handles filtering server-side)
-  const filteredProducts = useMemo(() => {
-    // Always apply local filtering since API might fail and we fall back to mock data
-    let result = [...products];
-
-    // Apply search filter - use searchFilterValue (the debounced value)
-    if (searchFilterValue) {
-      const query = searchFilterValue.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          (p.description && p.description.toLowerCase().includes(query)) ||
-          (p.category && p.category.toLowerCase().includes(query))
-      );
-    }
-
-    // Apply category filter (for mock data)
-    if (!USE_API && selectedCategories.length > 0) {
-      result = result.filter((p) => selectedCategories.includes(p.category));
-    }
-
-    // Apply price filter
-    result = result.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
-    );
-
-    // Apply sorting
-    switch (sortBy) {
-      case 'price-asc':
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-desc':
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'newest':
-        result.sort((a, b) => b.id - a.id);
-        break;
-      default:
-        result.sort((a, b) => (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
-    }
-
-    return result;
-  }, [products, searchFilterValue, selectedCategories, priceRange, sortBy]);
-
-  // Pagination
-  const totalPages = USE_API 
-    ? Math.ceil(totalCount / ITEMS_PER_PAGE)
-    : Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-    
-  const paginatedProducts = useMemo(() => {
-    if (USE_API) {
-      return filteredProducts; // API handles pagination
-    }
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredProducts, currentPage]);
+  // Handle search input change
+  const handleSearchChange = useCallback((e) => {
+    const value = e.target.value;
+    setSearchInput(value);
+    setCurrentPage(1); // Reset to first page when searching
+  }, []);
 
   // Handle page change
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
     setSearchParams((prev) => {
       prev.set('page', page.toString());
       return prev;
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [setSearchParams]);
 
-  // Handle category/type toggle
-  const toggleCategory = (categoryId) => {
-    if (USE_API) {
-      // For API, set the type ID directly
-      setSelectedTypeId(selectedTypeId === categoryId ? null : categoryId);
-    } else {
-      setSelectedCategories((prev) =>
-        prev.includes(categoryId)
-          ? prev.filter((c) => c !== categoryId)
-          : [...prev, categoryId]
-      );
-    }
+  // Handle category toggle
+  const handleCategoryChange = useCallback((categoryId) => {
+    setSelectedCategory(prev => prev === categoryId ? null : categoryId);
     setCurrentPage(1);
-  };
+  }, []);
 
   // Handle brand toggle
-  const toggleBrand = (brandId) => {
-    setSelectedBrandId(selectedBrandId === brandId ? null : brandId);
+  const handleBrandChange = useCallback((brand) => {
+    setSelectedBrand(prev => prev === brand ? null : brand);
     setCurrentPage(1);
-  };
+  }, []);
 
   // Clear all filters
-  const clearFilters = () => {
-    setSelectedCategories([]);
-    setSelectedBrandId(null);
-    setSelectedTypeId(null);
+  const clearFilters = useCallback(() => {
+    setSelectedCategory(null);
+    setSelectedBrand(null);
     setPriceRange([0, 1500]);
-    setSearchInputValue('');
-    setSearchFilterValue('');
-    setIsSearching(false);
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-    }
+    setSearchInput('');
+    setDebouncedSearch('');
     setSortBy('default');
     setCurrentPage(1);
     setSearchParams({});
-  };
+  }, [setSearchParams]);
 
-  // Combine categories from API types and mock data
-  const displayCategories = USE_API && types.length > 0 
-    ? types.map(t => ({ id: t.id, name: t.name, count: t.count || 0 }))
-    : mockCategories;
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedCategory) count++;
+    if (selectedBrand) count++;
+    if (priceRange[0] > 0 || priceRange[1] < 1500) count++;
+    if (debouncedSearch) count++;
+    return count;
+  }, [selectedCategory, selectedBrand, priceRange, debouncedSearch]);
 
-  const activeFiltersCount =
-    (USE_API ? (selectedBrandId ? 1 : 0) + (selectedTypeId ? 1 : 0) : selectedCategories.length) +
-    (priceRange[0] > 0 || priceRange[1] < 1500 ? 1 : 0) +
-    (searchFilterValue ? 1 : 0);
+  // Check if search is pending (input differs from debounced value)
+  const isSearchPending = searchInput !== debouncedSearch;
 
   // Filter Sidebar Content
   const FilterContent = () => (
@@ -360,44 +246,44 @@ const StorePage = () => {
           <Input
             type="search"
             placeholder="Search products..."
-            value={searchInputValue}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            value={searchInput}
+            onChange={handleSearchChange}
             className="pl-10"
             data-testid="store-search-input"
           />
-          {isSearching && (
+          {isSearchPending && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
         </div>
-        {searchInputValue && (
+        {searchInput && (
           <p className="text-xs text-muted-foreground mt-1">
-            {isSearching ? 'Searching...' : `Showing results for "${searchFilterValue}"`}
+            {isSearchPending ? 'Searching...' : `Showing results for "${debouncedSearch}"`}
           </p>
         )}
       </div>
 
       <Separator />
 
-      {/* Brands (from API) */}
-      {USE_API && brands.length > 0 && (
+      {/* Brands */}
+      {brands.length > 0 && (
         <>
           <div>
             <Label className="text-sm font-medium mb-3 block">Brands</Label>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-48 overflow-y-auto">
               {brands.map((brand) => (
-                <div key={brand.id} className="flex items-center space-x-3">
+                <div key={brand} className="flex items-center space-x-3">
                   <Checkbox
-                    id={`brand-${brand.id}`}
-                    checked={selectedBrandId === brand.id}
-                    onCheckedChange={() => toggleBrand(brand.id)}
+                    id={`brand-${brand}`}
+                    checked={selectedBrand === brand}
+                    onCheckedChange={() => handleBrandChange(brand)}
                   />
                   <Label
-                    htmlFor={`brand-${brand.id}`}
+                    htmlFor={`brand-${brand}`}
                     className="text-sm font-normal cursor-pointer flex-1"
                   >
-                    {brand.name}
+                    {brand}
                   </Label>
                 </div>
               ))}
@@ -407,34 +293,37 @@ const StorePage = () => {
         </>
       )}
 
-      {/* Categories/Types */}
-      <div>
-        <Label className="text-sm font-medium mb-3 block">Categories</Label>
-        <div className="space-y-3">
-          {displayCategories.map((category) => (
-            <div key={category.id} className="flex items-center space-x-3">
-              <Checkbox
-                id={category.id}
-                checked={USE_API ? selectedTypeId === category.id : selectedCategories.includes(category.id)}
-                onCheckedChange={() => toggleCategory(category.id)}
-              />
-              <Label
-                htmlFor={category.id}
-                className="text-sm font-normal cursor-pointer flex-1 flex justify-between items-center"
-              >
-                <span>{category.name}</span>
-                {category.count > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    ({category.count})
-                  </span>
-                )}
-              </Label>
+      {/* Categories */}
+      {categories.length > 0 && (
+        <>
+          <div>
+            <Label className="text-sm font-medium mb-3 block">Categories</Label>
+            <div className="space-y-3">
+              {categories.map((category) => (
+                <div key={category.id} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={`category-${category.id}`}
+                    checked={selectedCategory === category.id}
+                    onCheckedChange={() => handleCategoryChange(category.id)}
+                  />
+                  <Label
+                    htmlFor={`category-${category.id}`}
+                    className="text-sm font-normal cursor-pointer flex-1 flex justify-between items-center"
+                  >
+                    <span>{category.name}</span>
+                    {category.product_count > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        ({category.product_count})
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
+          </div>
+          <Separator />
+        </>
+      )}
 
       {/* Price Range */}
       <div>
@@ -450,8 +339,8 @@ const StorePage = () => {
           className="mb-4"
         />
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>${priceRange[0]}</span>
-          <span>${priceRange[1]}</span>
+          <span>₹{priceRange[0]}</span>
+          <span>₹{priceRange[1]}</span>
         </div>
       </div>
 
@@ -463,6 +352,7 @@ const StorePage = () => {
           variant="outline"
           className="w-full"
           onClick={clearFilters}
+          data-testid="clear-filters-btn"
         >
           <X className="mr-2 h-4 w-4" />
           Clear All Filters ({activeFiltersCount})
@@ -493,7 +383,7 @@ const StorePage = () => {
         <div className="mb-8">
           <h1 className="font-heading text-3xl font-bold text-foreground">All Products</h1>
           <p className="text-muted-foreground mt-1">
-            {isLoading ? 'Loading...' : `Showing ${paginatedProducts.length} of ${USE_API ? totalCount : filteredProducts.length} products`}
+            {isLoading ? 'Loading...' : `Showing ${products.length} of ${totalProducts} products`}
           </p>
         </div>
 
@@ -550,37 +440,42 @@ const StorePage = () => {
 
               {/* Active Filters Tags */}
               <div className="flex flex-wrap gap-2">
-                {selectedBrandId && brands.length > 0 && (
+                {selectedBrand && (
                   <Badge
                     variant="secondary"
                     className="cursor-pointer hover:bg-destructive/20"
-                    onClick={() => setSelectedBrandId(null)}
+                    onClick={() => setSelectedBrand(null)}
+                    data-testid="active-brand-filter"
                   >
-                    {brands.find((b) => b.id === selectedBrandId)?.name}
+                    {selectedBrand}
                     <X className="ml-1 h-3 w-3" />
                   </Badge>
                 )}
-                {selectedTypeId && types.length > 0 && (
+                {selectedCategory && categories.length > 0 && (
                   <Badge
                     variant="secondary"
                     className="cursor-pointer hover:bg-destructive/20"
-                    onClick={() => setSelectedTypeId(null)}
+                    onClick={() => setSelectedCategory(null)}
+                    data-testid="active-category-filter"
                   >
-                    {types.find((t) => t.id === selectedTypeId)?.name}
+                    {categories.find(c => c.id === selectedCategory)?.name}
                     <X className="ml-1 h-3 w-3" />
                   </Badge>
                 )}
-                {!USE_API && selectedCategories.map((cat) => (
+                {debouncedSearch && (
                   <Badge
-                    key={cat}
                     variant="secondary"
                     className="cursor-pointer hover:bg-destructive/20"
-                    onClick={() => toggleCategory(cat)}
+                    onClick={() => {
+                      setSearchInput('');
+                      setDebouncedSearch('');
+                    }}
+                    data-testid="active-search-filter"
                   >
-                    {mockCategories.find((c) => c.id === cat)?.name}
+                    Search: {debouncedSearch}
                     <X className="ml-1 h-3 w-3" />
                   </Badge>
-                ))}
+                )}
               </div>
 
               {/* Sort & View Options */}
@@ -589,7 +484,7 @@ const StorePage = () => {
                   setSortBy(value);
                   setCurrentPage(1);
                 }}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px]" data-testid="sort-select">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -605,20 +500,18 @@ const StorePage = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`rounded-r-none ${
-                      viewMode === 'grid' ? 'bg-muted' : ''
-                    }`}
+                    className={`rounded-r-none ${viewMode === 'grid' ? 'bg-muted' : ''}`}
                     onClick={() => setViewMode('grid')}
+                    data-testid="grid-view-btn"
                   >
                     <Grid3X3 className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`rounded-l-none ${
-                      viewMode === 'list' ? 'bg-muted' : ''
-                    }`}
+                    className={`rounded-l-none ${viewMode === 'list' ? 'bg-muted' : ''}`}
                     onClick={() => setViewMode('list')}
+                    data-testid="list-view-btn"
                   >
                     <LayoutList className="h-4 w-4" />
                   </Button>
@@ -632,7 +525,7 @@ const StorePage = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="ml-2 text-muted-foreground">Loading products...</span>
               </div>
-            ) : paginatedProducts.length > 0 ? (
+            ) : products.length > 0 ? (
               <>
                 {/* Products Grid */}
                 <div
@@ -641,20 +534,22 @@ const StorePage = () => {
                       ? 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
                       : 'grid-cols-1'
                   }`}
+                  data-testid="products-grid"
                 >
-                  {paginatedProducts.map((product) => (
+                  {products.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-8 flex items-center justify-center gap-2">
+                  <div className="mt-8 flex items-center justify-center gap-2" data-testid="pagination">
                     <Button
                       variant="outline"
                       size="icon"
                       disabled={currentPage === 1}
                       onClick={() => handlePageChange(currentPage - 1)}
+                      data-testid="prev-page-btn"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -672,14 +567,12 @@ const StorePage = () => {
                             variant={currentPage === page ? 'default' : 'outline'}
                             size="icon"
                             onClick={() => handlePageChange(page)}
+                            data-testid={`page-${page}-btn`}
                           >
                             {page}
                           </Button>
                         );
-                      } else if (
-                        page === currentPage - 2 ||
-                        page === currentPage + 2
-                      ) {
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
                         return <span key={page} className="px-2">...</span>;
                       }
                       return null;
@@ -690,6 +583,7 @@ const StorePage = () => {
                       size="icon"
                       disabled={currentPage === totalPages}
                       onClick={() => handlePageChange(currentPage + 1)}
+                      data-testid="next-page-btn"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -697,7 +591,7 @@ const StorePage = () => {
                 )}
               </>
             ) : (
-              <Card className="text-center py-16">
+              <Card className="text-center py-16" data-testid="no-products">
                 <CardContent>
                   <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
                     <Search className="h-8 w-8 text-muted-foreground" />
@@ -708,7 +602,9 @@ const StorePage = () => {
                   <p className="text-muted-foreground mb-4">
                     Try adjusting your filters or search terms
                   </p>
-                  <Button onClick={clearFilters}>Clear Filters</Button>
+                  <Button onClick={clearFilters} data-testid="clear-filters-empty-btn">
+                    Clear Filters
+                  </Button>
                 </CardContent>
               </Card>
             )}
