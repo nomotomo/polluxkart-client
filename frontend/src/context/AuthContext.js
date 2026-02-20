@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import AuthService from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -11,64 +12,79 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('polluxkart-user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('polluxkart-user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('polluxkart-user');
+    const savedData = localStorage.getItem('polluxkart-user');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setUser(parsed.user || parsed);
+        setToken(parsed.token || null);
+      } catch (e) {
+        console.error('Error parsing saved user:', e);
+        localStorage.removeItem('polluxkart-user');
+      }
     }
-  }, [user]);
+    setIsLoading(false);
+  }, []);
+
+  // Save user and token to localStorage
+  const saveUserData = useCallback((userData, authToken) => {
+    const dataToSave = {
+      user: userData,
+      token: authToken,
+    };
+    localStorage.setItem('polluxkart-user', JSON.stringify(dataToSave));
+    setUser(userData);
+    setToken(authToken);
+  }, []);
 
   const login = async (identifier, password, method = 'email') => {
     setIsLoading(true);
-    // Mock login - simulating API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const isEmail = method === 'email';
-    const mockUser = {
-      id: '1',
-      name: isEmail ? identifier.split('@')[0] : `User${identifier.slice(-4)}`,
-      email: isEmail ? identifier : null,
-      phone: isEmail ? null : identifier,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${identifier}`,
-    };
-    setUser(mockUser);
-    setIsLoading(false);
-    return mockUser;
+    try {
+      const response = await AuthService.login(identifier, password);
+      saveUserData(response.user, response.token);
+      setIsLoading(false);
+      return response.user;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
   };
 
   const signup = async (name, email, phone, password) => {
     setIsLoading(true);
-    // Mock signup - simulating API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const mockUser = {
-      id: Date.now().toString(),
-      name,
-      email: email || null,
-      phone,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
-    };
-    setUser(mockUser);
-    setIsLoading(false);
-    return mockUser;
+    try {
+      const response = await AuthService.register(name, phone, password, email);
+      saveUserData(response.user, response.token);
+      setIsLoading(false);
+      return response.user;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
-  };
+    setToken(null);
+    localStorage.removeItem('polluxkart-user');
+    // Also clear cart and wishlist data since they're user-specific
+    localStorage.removeItem('polluxkart-cart');
+    localStorage.removeItem('polluxkart-wishlist');
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && !!token,
         login,
         signup,
         logout,
