@@ -125,12 +125,10 @@ const StorePage = () => {
       const response = await ProductService.getAllProducts(
         currentPage,
         ITEMS_PER_PAGE,
-        selectedTypeId, // categoryId
-        selectedBrand,  // brand name
-        sortBy,
-        null, // Search is handled locally via filteredProducts
-        priceRange[0] > 0 ? priceRange[0] : null, // minPrice
-        priceRange[1] < 1500 ? priceRange[1] : null // maxPrice
+        selectedBrandId,
+        selectedTypeId,
+        sortMap[sortBy] || 'default',
+        null // Search is handled locally via filteredProducts
       );
 
       // ProductService already transforms the data
@@ -146,7 +144,7 @@ const StorePage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, selectedBrandId, selectedTypeId, sortBy, priceRange, brands]);
+  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
 
   // Load brands from API
   const loadBrands = useCallback(async () => {

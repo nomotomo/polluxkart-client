@@ -267,6 +267,27 @@ const AuthPage = () => {
     }
   };
 
+  // Reset OTP state when phone number changes
+  const handleLoginPhoneChange = (value) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, loginCountry.maxLength);
+    setLoginData({ ...loginData, phone: cleaned });
+    if (loginOtpSent) {
+      setLoginOtpSent(false);
+      setLoginOtpVerified(false);
+      setLoginOtp(['', '', '', '', '', '']);
+    }
+  };
+
+  const handleSignupPhoneChange = (value) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, signupCountry.maxLength);
+    setSignupData({ ...signupData, phone: cleaned });
+    if (signupOtpSent) {
+      setSignupOtpSent(false);
+      setSignupOtpVerified(false);
+      setSignupOtp(['', '', '', '', '', '']);
+    }
+  };
+
   const CountryCodeSelector = ({ value, onChange, id }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
