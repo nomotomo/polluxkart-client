@@ -1,32 +1,85 @@
 // API Configuration for PolluxKart
-// Automatically switches between local, dev, and production environments
+// Uses environment variable for the backend URL
 
-const getApiUrl = () => {
-  const hostname = window.location.hostname;
-  
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8010/';
-  } else if (hostname.includes('dev') || hostname.includes('staging')) {
-    return 'https://api.dev.com/';
-  } else {
-    return 'https://api.polluxkart.com/';
-  }
-};
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 export const API_CONFIG = {
-  baseUrl: getApiUrl(),
+  baseUrl: API_BASE_URL,
   endpoints: {
-    catalog: {
-      getAllProducts: 'Catalog/GetAllProducts',
-      getAllBrands: 'Catalog/GetAllBrands',
-      getAllTypes: 'Catalog/GetAllTypes',
-      getProductById: (id) => `Catalog/${id}`,
+    // Authentication
+    auth: {
+      register: '/api/auth/register',
+      login: '/api/auth/login',
+      me: '/api/auth/me',
     },
-    basket: {
-      getBasket: (userName) => `Basket/${userName}`,
-      updateBasket: 'Basket',
+    // Products
+    products: {
+      list: '/api/products',
+      categories: '/api/products/categories',
+      brands: '/api/products/brands',
+      getById: (id) => `/api/products/${id}`,
+      reviews: (id) => `/api/products/${id}/reviews`,
+    },
+    // Cart
+    cart: {
+      get: '/api/cart',
+      addItem: '/api/cart/items',
+      updateItem: (productId) => `/api/cart/items/${productId}`,
+      removeItem: (productId) => `/api/cart/items/${productId}`,
+      clear: '/api/cart',
+    },
+    // Wishlist
+    wishlist: {
+      get: '/api/wishlist',
+      products: '/api/wishlist/products',
+      addItem: '/api/wishlist/items',
+      removeItem: (productId) => `/api/wishlist/items/${productId}`,
+      check: (productId) => `/api/wishlist/check/${productId}`,
+    },
+    // Orders
+    orders: {
+      list: '/api/orders',
+      create: '/api/orders',
+      getById: (id) => `/api/orders/${id}`,
+      cancel: (id) => `/api/orders/${id}/cancel`,
+    },
+    // Payments
+    payments: {
+      createRazorpay: (orderId) => `/api/payments/razorpay/create/${orderId}`,
+      verifyRazorpay: '/api/payments/razorpay/verify',
+    },
+    // Inventory
+    inventory: {
+      get: (productId) => `/api/inventory/${productId}`,
+      available: (productId) => `/api/inventory/${productId}/available`,
     },
   },
+};
+
+// Helper to get auth token
+export const getAuthToken = () => {
+  const user = localStorage.getItem('polluxkart-user');
+  if (user) {
+    try {
+      const parsed = JSON.parse(user);
+      return parsed.token;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+// Helper to create headers with auth
+export const getAuthHeaders = () => {
+  const token = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
 };
 
 export default API_CONFIG;
