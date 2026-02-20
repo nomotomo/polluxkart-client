@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Star,
@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -30,7 +31,7 @@ import {
 } from '../components/ui/breadcrumb';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { getProductById, products } from '../data/products';
+import ProductService from '../services/productService';
 import ProductCard from '../components/products/ProductCard';
 import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
@@ -40,12 +41,158 @@ const ProductPage = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const product = getProductById(id);
+  
+  const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  
   const inWishlist = product ? isInWishlist(product.id) : false;
 
-  if (!product) {
+  // Load product data
+  useEffect(() => {
+    const loadProduct = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const productData = await ProductService.getProductById(id);
+        
+        // Transform to frontend format
+        const transformedProduct = {
+          id: productData.id,
+          name: productData.name,
+          category: productData.category_name || 'General',
+          categoryId: productData.category_id,
+          price: productData.price,
+          originalPrice: productData.original_price,
+          rating: productData.rating || 4.5,
+          reviews: productData.review_count || 0,
+          image: productData.image || (productData.images && productData.images[0]) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+          images: productData.images?.length > 0 ? productData.images : [productData.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'],
+          description: productData.description || '',
+          features: productData.features || [],
+          inStock: productData.in_stock !== false && productData.stock > 0,
+          stock: productData.stock,
+          badge: productData.original_price && productData.original_price > productData.price ? 'Sale' : null,
+          brand: productData.brand,
+        };
+        
+        setProduct(transformedProduct);
+        
+        // Load related products
+        if (transformedProduct.categoryId) {
+          const relatedResponse = await ProductService.getProducts({
+            categoryId: transformedProduct.categoryId,
+            pageSize: 5,
+          });
+          const related = (relatedResponse.products || [])
+            .filter(p => p.id !== id)
+            .slice(0, 4)
+            .map(p => ({
+              id: p.id,
+              name: p.name,
+              category: p.category_name || 'General',
+              price: p.price,
+              originalPrice: p.original_price,
+              rating: p.rating || 0,
+              reviews: p.review_count || 0,
+              image: p.image || (p.images && p.images[0]),
+              inStock: p.in_stock !== false,
+              badge: p.original_price && p.original_price > p.price ? 'Sale' : null,
+            }));
+          setRelatedProducts(related);
+        }
+
+        // Load reviews
+        try {
+          const reviewsData = await ProductService.getProductReviews(id);
+          setReviews(reviewsData || []);
+        } catch (reviewErr) {
+          console.error('Failed to load reviews:', reviewErr);
+          // Use mock reviews as fallback
+          setReviews(mockReviews);
+        }
+      } catch (err) {
+        console.error('Failed to load product:', err);
+        setError('Product not found');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id]);
+
+  // Mock reviews data (fallback)
+  const mockReviews = [
+    {
+      id: 1,
+      user_name: 'Sarah M.',
+      user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+      rating: 5,
+      created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      title: 'Absolutely amazing product!',
+      comment: 'Exceeded my expectations in every way. The quality is outstanding and it arrived quickly.',
+      helpful_count: 24,
+    },
+    {
+      id: 2,
+      user_name: 'James K.',
+      user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=James',
+      rating: 4,
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      title: 'Great value for money',
+      comment: 'Very happy with this purchase. Works exactly as described. Would recommend to others.',
+      helpful_count: 18,
+    },
+    {
+      id: 3,
+      user_name: 'Emily R.',
+      user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily',
+      rating: 5,
+      created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      title: 'Perfect!',
+      comment: 'This is exactly what I was looking for. The design is sleek and the functionality is top-notch.',
+      helpful_count: 31,
+    },
+  ];
+
+  const ratingBreakdown = [
+    { stars: 5, percentage: 72 },
+    { stars: 4, percentage: 18 },
+    { stars: 3, percentage: 6 },
+    { stars: 2, percentage: 3 },
+    { stars: 1, percentage: 1 },
+  ];
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) > 1 ? 's' : ''} ago`;
+    return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) > 1 ? 's' : ''} ago`;
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading product...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="text-center p-8">
@@ -57,57 +204,11 @@ const ProductPage = () => {
     );
   }
 
-  const isOutOfStock = product.inStock === false;
+  const isOutOfStock = !product.inStock;
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
-
-  const relatedProducts = products
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 4);
-
-  // Mock reviews data
-  const reviews = [
-    {
-      id: 1,
-      user: 'Sarah M.',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-      rating: 5,
-      date: '2 days ago',
-      title: 'Absolutely amazing product!',
-      content: 'Exceeded my expectations in every way. The quality is outstanding and it arrived quickly.',
-      helpful: 24,
-    },
-    {
-      id: 2,
-      user: 'James K.',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=James',
-      rating: 4,
-      date: '1 week ago',
-      title: 'Great value for money',
-      content: 'Very happy with this purchase. Works exactly as described. Would recommend to others.',
-      helpful: 18,
-    },
-    {
-      id: 3,
-      user: 'Emily R.',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily',
-      rating: 5,
-      date: '2 weeks ago',
-      title: 'Perfect!',
-      content: 'This is exactly what I was looking for. The design is sleek and the functionality is top-notch.',
-      helpful: 31,
-    },
-  ];
-
-  const ratingBreakdown = [
-    { stars: 5, percentage: 72 },
-    { stars: 4, percentage: 18 },
-    { stars: 3, percentage: 6 },
-    { stars: 2, percentage: 3 },
-    { stars: 1, percentage: 1 },
-  ];
 
   const handleAddToCart = () => {
     if (isOutOfStock) {
@@ -126,6 +227,8 @@ const ProductPage = () => {
     addToCart(product, quantity);
     navigate('/checkout');
   };
+
+  const displayReviews = reviews.length > 0 ? reviews : mockReviews;
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,25 +278,27 @@ const ProductPage = () => {
             </div>
 
             {/* Thumbnail Gallery */}
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedImage === index
-                      ? 'border-primary ring-2 ring-primary/20'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <img
-                    src={image}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
+            {product.images.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {product.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === index
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <img
+                      src={image}
+                      alt={`${product.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
@@ -206,6 +311,9 @@ const ProductPage = () => {
               <h1 className="font-heading text-3xl lg:text-4xl font-bold text-foreground">
                 {product.name}
               </h1>
+              {product.brand && (
+                <p className="text-sm text-muted-foreground mt-1">by {product.brand}</p>
+              )}
             </div>
 
             {/* Rating */}
@@ -250,17 +358,19 @@ const ProductPage = () => {
             </p>
 
             {/* Features */}
-            <div className="space-y-2">
-              <p className="font-medium text-foreground">Key Features:</p>
-              <ul className="grid grid-cols-2 gap-2">
-                {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Check className="h-4 w-4 text-success" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {product.features.length > 0 && (
+              <div className="space-y-2">
+                <p className="font-medium text-foreground">Key Features:</p>
+                <ul className="grid grid-cols-2 gap-2">
+                  {product.features.map((feature, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-success" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <Separator />
 
@@ -289,6 +399,9 @@ const ProductPage = () => {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {product.stock > 0 && product.stock <= 10 && (
+                  <span className="text-sm text-warning">Only {product.stock} left!</span>
+                )}
               </div>
 
               {/* Out of Stock Notice */}
@@ -340,6 +453,7 @@ const ProductPage = () => {
                     }
                   }}
                   className={inWishlist ? 'text-destructive hover:text-destructive' : ''}
+                  data-testid="wishlist-btn"
                 >
                   <Heart className={`mr-2 h-4 w-4 ${inWishlist ? 'fill-current' : ''}`} />
                   {inWishlist ? 'In Wishlist' : 'Add to Wishlist'}
@@ -429,9 +543,17 @@ const ProductPage = () => {
                     <span className="text-muted-foreground">Category</span>
                     <span className="font-medium text-foreground capitalize">{product.category}</span>
                   </div>
+                  {product.brand && (
+                    <div className="flex justify-between py-3 border-b border-border">
+                      <span className="text-muted-foreground">Brand</span>
+                      <span className="font-medium text-foreground">{product.brand}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-3 border-b border-border">
                     <span className="text-muted-foreground">Availability</span>
-                    <span className="font-medium text-success">In Stock</span>
+                    <span className={`font-medium ${product.inStock ? 'text-success' : 'text-destructive'}`}>
+                      {product.inStock ? 'In Stock' : 'Out of Stock'}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -445,7 +567,7 @@ const ProductPage = () => {
                 <CardContent className="p-6">
                   <div className="text-center mb-6">
                     <div className="font-heading text-5xl font-bold text-foreground">
-                      {product.rating}
+                      {product.rating.toFixed(1)}
                     </div>
                     <div className="flex justify-center gap-1 my-2">
                       {[...Array(5)].map((_, i) => (
@@ -481,19 +603,19 @@ const ProductPage = () => {
 
               {/* Reviews List */}
               <div className="lg:col-span-2 space-y-4">
-                {reviews.map((review) => (
+                {displayReviews.map((review) => (
                   <Card key={review.id}>
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <Avatar>
-                          <AvatarImage src={review.avatar} />
-                          <AvatarFallback>{review.user[0]}</AvatarFallback>
+                          <AvatarImage src={review.user_avatar} />
+                          <AvatarFallback>{(review.user_name || 'U')[0]}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
                             <div>
-                              <p className="font-medium text-foreground">{review.user}</p>
-                              <p className="text-xs text-muted-foreground">{review.date}</p>
+                              <p className="font-medium text-foreground">{review.user_name}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(review.created_at)}</p>
                             </div>
                             <div className="flex gap-0.5">
                               {[...Array(5)].map((_, i) => (
@@ -508,11 +630,13 @@ const ProductPage = () => {
                               ))}
                             </div>
                           </div>
-                          <h4 className="font-medium text-foreground mb-1">{review.title}</h4>
-                          <p className="text-sm text-muted-foreground">{review.content}</p>
+                          {review.title && (
+                            <h4 className="font-medium text-foreground mb-1">{review.title}</h4>
+                          )}
+                          <p className="text-sm text-muted-foreground">{review.comment}</p>
                           <div className="mt-3 flex items-center gap-2">
                             <Button variant="ghost" size="sm" className="text-xs">
-                              Helpful ({review.helpful})
+                              Helpful ({review.helpful_count || 0})
                             </Button>
                           </div>
                         </div>
@@ -534,7 +658,7 @@ const ProductPage = () => {
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-heading text-2xl font-bold text-foreground">Related Products</h2>
-              <Link to={`/store?category=${product.category}`}>
+              <Link to={`/store?category=${product.categoryId}`}>
                 <Button variant="ghost" className="text-primary">
                   View All <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
