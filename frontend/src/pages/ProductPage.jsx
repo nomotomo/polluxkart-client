@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Star,
@@ -32,9 +32,13 @@ import {
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import ProductService from '../services/productService';
+import { getProductById as getMockProductById, products as mockProducts } from '../data/products';
 import ProductCard from '../components/products/ProductCard';
 import { formatPrice } from '../utils/currency';
 import { toast } from 'sonner';
+
+// Flag to enable/disable API integration
+const USE_API = true;
 
 const ProductPage = () => {
   const { id } = useParams();
@@ -43,126 +47,115 @@ const ProductPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   
   const [product, setProduct] = useState(null);
-  const [relatedProducts, setRelatedProducts] = useState([]);
-  const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   
   const inWishlist = product ? isInWishlist(product.id) : false;
 
-  // Load product data
-  useEffect(() => {
-    // Mock reviews data (fallback) - defined inside effect to avoid dependency warning
-    const fallbackReviews = [
-      {
-        id: 1,
-        user_name: 'Sarah M.',
-        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-        rating: 5,
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        title: 'Absolutely amazing product!',
-        comment: 'Exceeded my expectations in every way. The quality is outstanding and it arrived quickly.',
-        helpful_count: 24,
-      },
-      {
-        id: 2,
-        user_name: 'James K.',
-        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=James',
-        rating: 4,
-        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        title: 'Great value for money',
-        comment: 'Very happy with this purchase. Works exactly as described. Would recommend to others.',
-        helpful_count: 18,
-      },
-      {
-        id: 3,
-        user_name: 'Emily R.',
-        user_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily',
-        rating: 5,
-        created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        title: 'Perfect!',
-        comment: 'This is exactly what I was looking for. The design is sleek and the functionality is top-notch.',
-        helpful_count: 31,
-      },
-    ];
+  // Fetch product from API
+  const fetchProduct = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-    const loadProduct = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const productData = await ProductService.getProductById(id);
-        
-        // Transform to frontend format
-        const transformedProduct = {
-          id: productData.id,
-          name: productData.name,
-          category: productData.category_name || 'General',
-          categoryId: productData.category_id,
-          price: productData.price,
-          originalPrice: productData.original_price,
-          rating: productData.rating || 4.5,
-          reviews: productData.review_count || 0,
-          image: productData.image || (productData.images && productData.images[0]) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-          images: productData.images?.length > 0 ? productData.images : [productData.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500'],
-          description: productData.description || '',
-          features: productData.features || [],
-          inStock: productData.in_stock !== false && productData.stock > 0,
-          stock: productData.stock,
-          badge: productData.original_price && productData.original_price > productData.price ? 'Sale' : null,
-          brand: productData.brand,
-        };
-        
-        setProduct(transformedProduct);
-        
-        // Load related products
-        if (transformedProduct.categoryId) {
-          const relatedResponse = await ProductService.getProducts({
-            categoryId: transformedProduct.categoryId,
-            pageSize: 5,
-          });
-          const related = (relatedResponse.products || [])
-            .filter(p => p.id !== id)
+    if (!USE_API) {
+      const mockProduct = getMockProductById(id);
+      setProduct(mockProduct);
+      if (mockProduct) {
+        setRelatedProducts(
+          mockProducts
+            .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
             .slice(0, 4)
-            .map(p => ({
-              id: p.id,
-              name: p.name,
-              category: p.category_name || 'General',
-              price: p.price,
-              originalPrice: p.original_price,
-              rating: p.rating || 0,
-              reviews: p.review_count || 0,
-              image: p.image || (p.images && p.images[0]),
-              inStock: p.in_stock !== false,
-              badge: p.original_price && p.original_price > p.price ? 'Sale' : null,
-            }));
-          setRelatedProducts(related);
-        }
-
-        // Load reviews
-        try {
-          const reviewsData = await ProductService.getProductReviews(id);
-          setReviews(reviewsData || []);
-        } catch (reviewErr) {
-          console.error('Failed to load reviews:', reviewErr);
-          // Use mock reviews as fallback
-          setReviews(fallbackReviews);
-        }
-      } catch (err) {
-        console.error('Failed to load product:', err);
-        setError('Product not found');
-      } finally {
-        setIsLoading(false);
+        );
       }
-    };
+      setIsLoading(false);
+      return;
+    }
 
-    loadProduct();
+    try {
+      const productData = await ProductService.getProductById(id);
+      if (!productData) {
+        // Try mock data fallback
+        const mockProduct = getMockProductById(id);
+        setProduct(mockProduct);
+        if (mockProduct) {
+          setRelatedProducts(
+            mockProducts
+              .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
+              .slice(0, 4)
+          );
+        }
+      } else {
+        setProduct(productData);
+        // Fetch related products
+        try {
+          const related = await ProductService.getAllProducts(1, 4, productData.categoryId);
+          setRelatedProducts(
+            (related.data || []).filter((p) => p.id !== productData.id).slice(0, 4)
+          );
+        } catch {
+          setRelatedProducts([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      // Fallback to mock data
+      const mockProduct = getMockProductById(id);
+      if (mockProduct) {
+        setProduct(mockProduct);
+        setRelatedProducts(
+          mockProducts
+            .filter((p) => p.category === mockProduct.category && p.id !== mockProduct.id)
+            .slice(0, 4)
+        );
+      } else {
+        setError('Failed to load product');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, [id]);
 
-  // Mock reviews data for display fallback
-  const mockReviews = [
+  useEffect(() => {
+    fetchProduct();
+    setSelectedImage(0);
+    setQuantity(1);
+  }, [fetchProduct]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-muted-foreground">Loading product...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="text-center p-8">
+          <h2 className="font-heading text-2xl font-bold mb-4">Product Not Found</h2>
+          <p className="text-muted-foreground mb-6">The product you're looking for doesn't exist.</p>
+          <Button onClick={() => navigate('/store')}>Back to Store</Button>
+        </Card>
+      </div>
+    );
+  }
+
+  const isOutOfStock = product.inStock === false;
+
+  const discount = product.originalPrice
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+    : 0;
+
+  // Mock reviews data
+  const reviews = [
     {
       id: 1,
       user_name: 'Sarah M.',

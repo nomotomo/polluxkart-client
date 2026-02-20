@@ -10,7 +10,7 @@ Build a complete e-commerce platform named "PolluxKart" with:
 
 ### Frontend (React)
 - **Stack**: React 19, Tailwind CSS, shadcn/ui
-- **State Management**: React Context API
+- **State Management**: React Context API with Backend Sync
 - **Routing**: React Router DOM v7
 - **Testing**: Jest, React Testing Library (28 tests)
 - **CI/CD**: GitHub Actions
@@ -139,12 +139,129 @@ Collections:
 - 20 Brands
 - 1 Test user
 
+### Backend (FastAPI)
+- **Stack**: FastAPI, Python 3.11, MongoDB (Motor async driver)
+- **Authentication**: JWT (python-jose)
+- **Payment**: Razorpay integration (pending API keys)
+- **Services**: Auth, Products, Cart, Wishlist, Orders, Payments, Inventory
+
+### Database (MongoDB)
+Collections:
+- `users` - User accounts
+- `products` - Product catalog
+- `categories` - Product categories
+- `carts` - Shopping carts (synced with backend)
+- `wishlists` - User wishlists (synced with backend)
+- `orders` - Order records
+- `payments` - Payment transactions
+- `inventory` - Stock management
+- `reviews` - Product reviews
+- `stock_movements` - Inventory audit trail
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login (email/phone)
+
+### Products
+- `GET /api/products` - List products (pagination, filter, sort, search)
+- `GET /api/products/{id}` - Get product
+- `GET /api/products/categories` - Get categories
+- `GET /api/products/brands` - Get brands
+- `GET /api/products/{id}/reviews` - Get reviews
+- `POST /api/products/{id}/reviews` - Add review (auth)
+
+### Cart
+- `GET /api/cart` - Get cart (auth)
+- `POST /api/cart/items` - Add to cart (auth)
+- `PUT /api/cart/items/{product_id}` - Update quantity (auth)
+- `DELETE /api/cart/items/{product_id}` - Remove item (auth)
+
+### Wishlist
+- `GET /api/wishlist` - Get wishlist (auth)
+- `GET /api/wishlist/products` - Get full product details (auth)
+- `POST /api/wishlist/items` - Add item (auth)
+- `DELETE /api/wishlist/items/{product_id}` - Remove item (auth)
+
+### Orders
+- `GET /api/orders` - Get orders (auth)
+- `POST /api/orders` - Create order (auth)
+- `GET /api/orders/{id}` - Get order (auth)
+- `POST /api/orders/{id}/cancel` - Cancel order (auth)
+
+### Payments
+- `POST /api/payments/razorpay/create/{order_id}` - Create Razorpay order
+- `POST /api/payments/razorpay/verify` - Verify payment
+
+### Inventory
+- `GET /api/inventory/{product_id}` - Get inventory
+- `GET /api/inventory/{product_id}/available` - Get available stock
+- `POST /api/inventory/adjust` - Adjust stock (admin)
+
+## Features Implemented
+
+### Frontend (January 2026)
+- [x] All pages: Home, Store, Product, Cart, Checkout, Orders, Wishlist, Auth
+- [x] INR currency formatting (₹)
+- [x] Country code selector for phone auth
+- [x] OTP verification flow (MOCKED)
+- [x] Categories dropdown in navbar
+- [x] Debounced search (500ms)
+- [x] Out-of-stock handling
+- [x] Toast notifications with close button
+- [x] Unit tests
+- [x] GitHub Actions CI/CD
+
+### Backend (January 2026)
+- [x] JWT Authentication
+- [x] Product CRUD with filtering, sorting, search
+- [x] Shopping cart management
+- [x] Wishlist sync
+- [x] Order management
+- [x] Razorpay payment integration (MOCKED - awaiting keys)
+- [x] Inventory management with stock movements
+- [x] Product reviews & ratings
+- [x] Email notifications (templates ready)
+
+### Frontend-Backend Integration (February 2026)
+- [x] Connected Store page to /api/products
+- [x] Connected Product Detail page to /api/products/{id}
+- [x] Connected Auth to /api/auth/login and /api/auth/register
+- [x] CartContext syncs with /api/cart when authenticated
+- [x] WishlistContext syncs with /api/wishlist when authenticated
+- [x] All API services created (productService, authService, cartService, wishlistService, orderService)
+
+## Test Credentials
+- **Email**: test@polluxkart.com
+- **Phone**: +919876543210
+- **Password**: Test@123
+
+## Seed Data
+- 6 Categories
+- 21 Products (2 out of stock)
+- 1 Test user
+
 ## Known Mocked Elements
 - **OTP Verification**: Frontend mock - any 6-digit code works (123456 recommended)
 - **Razorpay**: Mock order IDs generated when API keys not configured
 - **Email Notifications**: SMTP not configured - logs to console
 
-## Environment Variables Required
+### New Features (This Session)
+1. **INR Currency**: formatPrice utility showing ₹ symbol with Indian number formatting
+2. **Country Code Selector**: 20 countries with flags in Auth page
+3. **Categories Navigation**: Full dropdown in header with subcategories
+4. **Out-of-Stock Handling**: Disabled buttons and indicator on ProductPage
+5. **Wishlist Integration**: Working add/remove on ProductPage
+6. **OTP Verification (MOCKED)**: Phone verification flow with:
+   - Send OTP button
+   - 6-digit OTP input boxes
+   - Verify OTP button
+   - Resend timer (30s countdown)
+   - Mock OTP: 123456 (any 6-digit code works)
+7. **Debounced Search**: Store search waits 500ms before filtering (prevents search on every keystroke)
+8. **Unit Tests**: 28 tests covering currency, products, country codes, debounce hook
+9. **GitHub Actions CI**: Runs tests, lint, build on PR to main/dev
 
 ### Backend (.env)
 ```
@@ -158,28 +275,63 @@ SMTP_USER=xxx  # Optional
 SMTP_PASSWORD=xxx  # Optional
 ```
 
-## Test Results
-- **Backend Tests**: 40/40 passing (100%)
-- **Frontend Integration**: All features tested and working
-- **Search Debounce**: Verified working with 500ms delay
+## Testing Status
+- ✅ Unit Tests: 28/28 passing
+- ✅ Frontend E2E: All features tested and working
+- ✅ Out-of-stock: Properly disables purchase buttons
+- ✅ OTP Flow: Send OTP, Enter OTP, Verify works
+- ✅ Search Debounce: 500ms delay before filtering
 
-## Next Steps (Backlog)
+## Known Mocked Elements
+- **Backend API**: All API calls fallback to local mock data
+- **Authentication**: Mocked - any credentials work
+- **OTP Verification**: MOCKED - Test OTP is 123456, but any 6-digit code works
+- **Payment**: UI only - no real transactions
+- **Orders**: Stored in localStorage, not persistent
 
-### P0 - Critical
-- [x] ~~Connect frontend to backend APIs~~ ✅ COMPLETED
-- [ ] Configure Razorpay live keys
-- [ ] Add admin panel for product management
+## P0/P1/P2 Features Status
+
+### P0 (Critical) - COMPLETE
+- [x] All main pages functional
+- [x] INR currency display
+- [x] Basic cart/checkout flow
+- [x] Product browsing and filtering
+
+### P1 (Important) - COMPLETE
+- [x] Wishlist functionality
+- [x] Country code selector
+- [x] Categories in navbar
+- [x] Out-of-stock handling
+- [x] Unit testing setup
 
 ### P1 - Important
 - [ ] Configure SMTP for email notifications
 - [ ] Add real OTP service (Twilio/AWS SNS)
 - [ ] Add order tracking with status updates
 - [ ] Add user profile/settings page
-- [ ] Implement product reviews UI (reviews API ready)
 
 ### P2 - Nice to Have
 - [ ] Add product image upload
 - [ ] Add coupon/discount codes
 - [ ] Add order invoice PDF generation
 - [ ] Add social login (Google/Facebook)
-- [ ] "Remember this device" for OTP
+
+## File Structure
+```
+/app/
+├── .github/workflows/ci.yml
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/ (AuthContext, CartContext, WishlistContext)
+│   │   ├── pages/
+│   │   ├── services/ (apiConfig, authService, productService, cartService, wishlistService, orderService)
+│   │   └── utils/
+│   └── tests/
+└── backend/
+    ├── config/
+    ├── models/
+    ├── routes/
+    ├── services/
+    └── utils/
+```

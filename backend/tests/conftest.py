@@ -5,11 +5,8 @@ import pytest
 import requests
 import os
 
-# Get BASE_URL from environment - check frontend env first, then fallback to backend URL
-# Export this so test files can import it
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL') or os.environ.get('API_BASE_URL') or 'https://pollux-store-service.preview.emergentagent.com'
-BASE_URL = BASE_URL.rstrip('/')
-print(f"Test BASE_URL: {BASE_URL}")
+# Get BASE_URL from environment
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 @pytest.fixture(scope="session")
 def base_url():

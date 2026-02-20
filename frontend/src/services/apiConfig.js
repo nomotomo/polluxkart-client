@@ -1,40 +1,57 @@
 // API Configuration for PolluxKart
-// Uses the backend URL from environment variables
+// Uses environment variable for the backend URL
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 export const API_CONFIG = {
-  baseUrl: `${API_BASE_URL}/api`,
+  baseUrl: API_BASE_URL,
   endpoints: {
-    // Auth
+    // Authentication
     auth: {
-      register: '/auth/register',
-      login: '/auth/login',
-      me: '/auth/me',
+      register: '/api/auth/register',
+      login: '/api/auth/login',
+      me: '/api/auth/me',
     },
     // Products
     products: {
-      list: '/products',
-      single: (id) => `/products/${id}`,
-      categories: '/products/categories',
-      brands: '/products/brands',
-      reviews: (id) => `/products/${id}/reviews`,
+      list: '/api/products',
+      categories: '/api/products/categories',
+      brands: '/api/products/brands',
+      getById: (id) => `/api/products/${id}`,
+      reviews: (id) => `/api/products/${id}/reviews`,
     },
     // Cart
     cart: {
-      get: '/cart',
-      addItem: '/cart/items',
-      updateItem: (productId) => `/cart/items/${productId}`,
-      removeItem: (productId) => `/cart/items/${productId}`,
-      clear: '/cart',
+      get: '/api/cart',
+      addItem: '/api/cart/items',
+      updateItem: (productId) => `/api/cart/items/${productId}`,
+      removeItem: (productId) => `/api/cart/items/${productId}`,
+      clear: '/api/cart',
     },
     // Wishlist
     wishlist: {
-      get: '/wishlist',
-      products: '/wishlist/products',
-      addItem: '/wishlist/items',
-      removeItem: (productId) => `/wishlist/items/${productId}`,
-      check: (productId) => `/wishlist/check/${productId}`,
+      get: '/api/wishlist',
+      products: '/api/wishlist/products',
+      addItem: '/api/wishlist/items',
+      removeItem: (productId) => `/api/wishlist/items/${productId}`,
+      check: (productId) => `/api/wishlist/check/${productId}`,
+    },
+    // Orders
+    orders: {
+      list: '/api/orders',
+      create: '/api/orders',
+      getById: (id) => `/api/orders/${id}`,
+      cancel: (id) => `/api/orders/${id}/cancel`,
+    },
+    // Payments
+    payments: {
+      createRazorpay: (orderId) => `/api/payments/razorpay/create/${orderId}`,
+      verifyRazorpay: '/api/payments/razorpay/verify',
+    },
+    // Inventory
+    inventory: {
+      get: (productId) => `/api/inventory/${productId}`,
+      available: (productId) => `/api/inventory/${productId}/available`,
     },
     // Orders
     orders: {
@@ -54,67 +71,30 @@ export const API_CONFIG = {
   },
 };
 
-// Auth token management
-const TOKEN_KEY = 'polluxkart-token';
+// Helper to get auth token
+export const getAuthToken = () => {
+  const user = localStorage.getItem('polluxkart-user');
+  if (user) {
+    try {
+      const parsed = JSON.parse(user);
+      return parsed.token;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
 
-export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
-export const setAuthToken = (token) => localStorage.setItem(TOKEN_KEY, token);
-export const removeAuthToken = () => localStorage.removeItem(TOKEN_KEY);
-
-// Create headers with optional auth
-export const getHeaders = (includeAuth = true) => {
+// Helper to create headers with auth
+export const getAuthHeaders = () => {
+  const token = getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
   };
-  
-  if (includeAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  
   return headers;
-};
-
-// Generic fetch wrapper with error handling
-export const apiFetch = async (endpoint, options = {}) => {
-  const url = `${API_CONFIG.baseUrl}${endpoint}`;
-  const { includeAuth = true, ...fetchOptions } = options;
-  
-  const config = {
-    ...fetchOptions,
-    headers: {
-      ...getHeaders(includeAuth),
-      ...fetchOptions.headers,
-    },
-  };
-  
-  try {
-    const response = await fetch(url, config);
-    
-    // Handle no content responses
-    if (response.status === 204) {
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      const error = new Error(data.detail || data.message || 'API request failed');
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
-    
-    return data;
-  } catch (error) {
-    if (error.status) {
-      throw error;
-    }
-    console.error('API fetch error:', error);
-    throw new Error(error.message || 'Network error');
-  }
 };
 
 export default API_CONFIG;

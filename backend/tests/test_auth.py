@@ -2,12 +2,10 @@
 Authentication API tests - Register and Login endpoints
 """
 import pytest
-import uuid
 import os
+import uuid
 
-# BASE_URL: Use environment variable if available, otherwise fallback to production URL
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL') or os.environ.get('API_BASE_URL') or 'https://pollux-store-service.preview.emergentagent.com'
-BASE_URL = BASE_URL.rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 
 class TestAuthRegister:

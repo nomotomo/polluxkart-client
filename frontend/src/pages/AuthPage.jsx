@@ -198,7 +198,7 @@ const AuthPage = () => {
       toast.success('Welcome back!');
       navigate('/');
     } catch (error) {
-      toast.error(error.message || 'Login failed. Please check your credentials.');
+      toast.error(error.message || 'Login failed. Please try again.');
     }
   };
 
@@ -243,6 +243,27 @@ const AuthPage = () => {
       navigate('/');
     } catch (error) {
       toast.error(error.message || 'Signup failed. Please try again.');
+    }
+  };
+
+  // Reset OTP state when phone number changes
+  const handleLoginPhoneChange = (value) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, loginCountry.maxLength);
+    setLoginData({ ...loginData, phone: cleaned });
+    if (loginOtpSent) {
+      setLoginOtpSent(false);
+      setLoginOtpVerified(false);
+      setLoginOtp(['', '', '', '', '', '']);
+    }
+  };
+
+  const handleSignupPhoneChange = (value) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, signupCountry.maxLength);
+    setSignupData({ ...signupData, phone: cleaned });
+    if (signupOtpSent) {
+      setSignupOtpSent(false);
+      setSignupOtpVerified(false);
+      setSignupOtp(['', '', '', '', '', '']);
     }
   };
 

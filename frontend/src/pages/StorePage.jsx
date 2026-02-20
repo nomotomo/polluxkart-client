@@ -35,7 +35,10 @@ import ProductCard from '../components/products/ProductCard';
 import ProductService from '../services/productService';
 
 const ITEMS_PER_PAGE = 12;
-const DEBOUNCE_DELAY = 500; // milliseconds
+const SEARCH_DEBOUNCE_MS = 500;
+
+// Flag to enable/disable API integration (set to true when your backend is running)
+const USE_API = true; // Change to false to use mock data
 
 const StorePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,10 +47,11 @@ const StorePage = () => {
   const [sortBy, setSortBy] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Search state - simplified: only track input and debounced query
-  const [searchInput, setSearchInput] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const debounceTimerRef = useRef(null);
+  // Search states - separate input value from the actual filter value
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const [searchFilterValue, setSearchFilterValue] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef(null);
   
   // API data state
   const [products, setProducts] = useState([]);
@@ -59,10 +63,113 @@ const StorePage = () => {
   const [error, setError] = useState(null);
   
   // Selected filters
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedBrand, setSelectedBrand] = useState(null);
+  const [selectedBrandId, setSelectedBrandId] = useState(null);
+  const [selectedTypeId, setSelectedTypeId] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
-  // Initialize from URL params on mount
+  // Handle search input change with debounce
+  const handleSearchChange = useCallback((value) => {
+    setSearchInputValue(value);
+    
+    // Clear any existing timer
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    
+    // If value is empty, update immediately
+    if (!value) {
+      setSearchFilterValue('');
+      setIsSearching(false);
+      setCurrentPage(1);
+      return;
+    }
+    
+    // Show searching indicator
+    setIsSearching(true);
+    
+    // Set new timer to update filter after delay
+    searchTimerRef.current = setTimeout(() => {
+      setSearchFilterValue(value);
+      setIsSearching(false);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Load products from API
+  const loadProducts = useCallback(async () => {
+    if (!USE_API) {
+      // Use mock data
+      setProducts(mockProducts);
+      setTotalCount(mockProducts.length);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Get the brand name if selected
+      const selectedBrand = selectedBrandId ? brands.find(b => b.id === selectedBrandId)?.name : null;
+      
+      const response = await ProductService.getAllProducts(
+        currentPage,
+        ITEMS_PER_PAGE,
+        selectedBrandId,
+        selectedTypeId,
+        sortMap[sortBy] || 'default',
+        null // Search is handled locally via filteredProducts
+      );
+
+      // ProductService already transforms the data
+      setProducts(response.data || []);
+      setTotalCount(response.count || response.data?.length || 0);
+      console.log('Loaded products:', response.data);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      setError('Failed to load products. Using offline data.');
+      // Fallback to mock data
+      setProducts(mockProducts);
+      setTotalCount(mockProducts.length);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, selectedBrandId, selectedTypeId, sortBy]); // Removed searchFilterValue - filtering is done locally
+
+  // Load brands from API
+  const loadBrands = useCallback(async () => {
+    if (!USE_API) return;
+
+    try {
+      const response = await ProductService.getAllBrands();
+      setBrands(response || []);
+    } catch (err) {
+      console.error('Failed to load brands:', err);
+    }
+  }, []);
+
+  // Load types/categories from API
+  const loadTypes = useCallback(async () => {
+    if (!USE_API) return;
+
+    try {
+      const response = await ProductService.getAllCategories();
+      setTypes(response || []);
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    }
+  }, []);
+
+  // Initialize from URL params
   useEffect(() => {
     const category = searchParams.get('category');
     const brand = searchParams.get('brand');
@@ -72,8 +179,8 @@ const StorePage = () => {
     if (category) setSelectedCategory(category);
     if (brand) setSelectedBrand(brand);
     if (search) {
-      setSearchInput(search);
-      setDebouncedSearch(search);
+      setSearchInputValue(search);
+      setSearchFilterValue(search);
     }
     if (page) setCurrentPage(parseInt(page, 10));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,63 +231,55 @@ const StorePage = () => {
 
   // Load products when filters change
   useEffect(() => {
-    const loadProducts = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Map frontend sort values to backend API format
-        const sortMap = {
-          'default': 'default',
-          'price-asc': 'price_asc',
-          'price-desc': 'price_desc',
-          'rating': 'rating',
-          'newest': 'newest',
-        };
-
-        const response = await ProductService.getProducts({
-          page: currentPage,
-          pageSize: ITEMS_PER_PAGE,
-          categoryId: selectedCategory,
-          brand: selectedBrand,
-          search: debouncedSearch || null,
-          minPrice: priceRange[0] > 0 ? priceRange[0] : null,
-          maxPrice: priceRange[1] < 1500 ? priceRange[1] : null,
-          sortBy: sortMap[sortBy] || 'default',
-        });
-
-        // Transform API data to frontend format
-        const transformedProducts = (response.products || []).map(product => ({
-          id: product.id,
-          name: product.name,
-          category: product.category_name || 'General',
-          price: product.price,
-          originalPrice: product.original_price,
-          rating: product.rating || 0,
-          reviews: product.review_count || 0,
-          image: product.image || (product.images && product.images[0]) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-          images: product.images || [],
-          description: product.description || '',
-          features: product.features || [],
-          inStock: product.in_stock !== false,
-          badge: product.original_price && product.original_price > product.price ? 'Sale' : null,
-          brand: product.brand,
-        }));
-
-        setProducts(transformedProducts);
-        setTotalProducts(response.total || 0);
-        setTotalPages(response.total_pages || 1);
-      } catch (err) {
-        console.error('Failed to load products:', err);
-        setError('Failed to load products. Please try again.');
-        setProducts([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadProducts();
-  }, [currentPage, selectedCategory, selectedBrand, debouncedSearch, priceRange, sortBy]);
+  }, [loadProducts]);
+
+  // Filter products locally for mock data (API handles filtering server-side)
+  const filteredProducts = useMemo(() => {
+    // Always apply local filtering since API might fail and we fall back to mock data
+    let result = [...products];
+
+    // Apply search filter - use searchFilterValue (the debounced value)
+    if (searchFilterValue) {
+      const query = searchFilterValue.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          (p.description && p.description.toLowerCase().includes(query)) ||
+          (p.category && p.category.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply category filter (for mock data)
+    if (!USE_API && selectedCategories.length > 0) {
+      result = result.filter((p) => selectedCategories.includes(p.category));
+    }
+
+    // Apply price filter
+    result = result.filter(
+      (p) => p.price >= priceRange[0] && p.price <= priceRange[1]
+    );
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'price-asc':
+        result.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        result.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'newest':
+        result.sort((a, b) => b.id - a.id);
+        break;
+      default:
+        result.sort((a, b) => (b.badge ? 1 : 0) - (a.badge ? 1 : 0));
+    }
+
+    return result;
+  }, [products, searchFilterValue, selectedCategories, priceRange, sortBy]);
 
   // Handle search input change
   const handleSearchChange = useCallback((e) => {
@@ -216,8 +315,12 @@ const StorePage = () => {
     setSelectedCategory(null);
     setSelectedBrand(null);
     setPriceRange([0, 1500]);
-    setSearchInput('');
-    setDebouncedSearch('');
+    setSearchInputValue('');
+    setSearchFilterValue('');
+    setIsSearching(false);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
     setSortBy('default');
     setCurrentPage(1);
     setSearchParams({});
@@ -233,8 +336,10 @@ const StorePage = () => {
     return count;
   }, [selectedCategory, selectedBrand, priceRange, debouncedSearch]);
 
-  // Check if search is pending (input differs from debounced value)
-  const isSearchPending = searchInput !== debouncedSearch;
+  const activeFiltersCount =
+    (USE_API ? (selectedBrandId ? 1 : 0) + (selectedTypeId ? 1 : 0) : selectedCategories.length) +
+    (priceRange[0] > 0 || priceRange[1] < 1500 ? 1 : 0) +
+    (searchFilterValue ? 1 : 0);
 
   // Filter Sidebar Content
   const FilterContent = () => (
@@ -247,20 +352,20 @@ const StorePage = () => {
           <Input
             type="search"
             placeholder="Search products..."
-            value={searchInput}
-            onChange={handleSearchChange}
+            value={searchInputValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
             data-testid="store-search-input"
           />
-          {isSearchPending && (
+          {isSearching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
         </div>
-        {searchInput && (
+        {searchInputValue && (
           <p className="text-xs text-muted-foreground mt-1">
-            {isSearchPending ? 'Searching...' : `Showing results for "${debouncedSearch}"`}
+            {isSearching ? 'Searching...' : `Showing results for "${searchFilterValue}"`}
           </p>
         )}
       </div>

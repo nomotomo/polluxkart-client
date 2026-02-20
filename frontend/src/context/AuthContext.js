@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AuthService from '../services/authService';
-import { getAuthToken, removeAuthToken } from '../services/apiConfig';
 
 const AuthContext = createContext();
 
@@ -13,22 +12,36 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    // Check localStorage for cached user data
-    const savedUser = localStorage.getItem('polluxkart-user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // Save user to localStorage whenever it changes
+  // Load user from localStorage on mount
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('polluxkart-user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('polluxkart-user');
+    const savedData = localStorage.getItem('polluxkart-user');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setUser(parsed.user || parsed);
+        setToken(parsed.token || null);
+      } catch (e) {
+        console.error('Error parsing saved user:', e);
+        localStorage.removeItem('polluxkart-user');
+      }
     }
-  }, [user]);
+    setIsLoading(false);
+  }, []);
+
+  // Save user and token to localStorage
+  const saveUserData = useCallback((userData, authToken) => {
+    const dataToSave = {
+      user: userData,
+      token: authToken,
+    };
+    localStorage.setItem('polluxkart-user', JSON.stringify(dataToSave));
+    setUser(userData);
+    setToken(authToken);
+  }, []);
 
   // Check for existing token on mount
   useEffect(() => {
@@ -49,74 +62,46 @@ export const AuthProvider = ({ children }) => {
 
   const login = useCallback(async (identifier, password) => {
     setIsLoading(true);
-    setError(null);
-    
     try {
       const response = await AuthService.login(identifier, password);
-      const userData = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        phone: response.user.phone,
-        avatar: response.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${response.user.name}`,
-      };
-      setUser(userData);
-      return userData;
-    } catch (err) {
-      const errorMessage = err.message || 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
+      saveUserData(response.user, response.token);
       setIsLoading(false);
+      return response.user;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
     }
-  }, []);
+  };
 
   const signup = useCallback(async (name, email, phone, password) => {
     setIsLoading(true);
-    setError(null);
-    
     try {
-      const response = await AuthService.register({
-        name,
-        email: email || undefined,
-        phone,
-        password,
-      });
-      const userData = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        phone: response.user.phone,
-        avatar: response.user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
-      };
-      setUser(userData);
-      return userData;
-    } catch (err) {
-      const errorMessage = err.message || 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
+      const response = await AuthService.register(name, phone, password, email);
+      saveUserData(response.user, response.token);
       setIsLoading(false);
+      return response.user;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
     }
-  }, []);
+  };
 
   const logout = useCallback(() => {
-    AuthService.logout();
     setUser(null);
-    setError(null);
-  }, []);
-
-  const clearError = useCallback(() => {
-    setError(null);
+    setToken(null);
+    localStorage.removeItem('polluxkart-user');
+    // Also clear cart and wishlist data since they're user-specific
+    localStorage.removeItem('polluxkart-cart');
+    localStorage.removeItem('polluxkart-wishlist');
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        token,
         isLoading,
-        isAuthenticated: !!user && !!getAuthToken(),
-        error,
+        isAuthenticated: !!user && !!token,
         login,
         signup,
         logout,

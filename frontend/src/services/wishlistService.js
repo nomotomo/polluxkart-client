@@ -1,15 +1,31 @@
-// Wishlist Service - API integration for wishlist operations
-import { API_CONFIG, apiFetch, getAuthToken } from './apiConfig';
+// Wishlist Service - API integration for wishlist
+import API_CONFIG, { getAuthHeaders, getAuthToken } from './apiConfig';
 
 /**
- * Get current user's wishlist
- * @returns {Promise<{product_ids: Array}>}
+ * Get user's wishlist
  */
 export const getWishlist = async () => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   try {
-    return await apiFetch(API_CONFIG.endpoints.wishlist.get, {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.wishlist.get}`;
+    
+    const response = await fetch(url, {
       method: 'GET',
+      headers: getAuthHeaders(),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      items: data.product_ids || [],
+    };
   } catch (error) {
     console.error('Error fetching wishlist:', error);
     throw error;
@@ -17,14 +33,42 @@ export const getWishlist = async () => {
 };
 
 /**
- * Get full product details for wishlist items
- * @returns {Promise<Array>}
+ * Get wishlist with full product details
  */
 export const getWishlistProducts = async () => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   try {
-    return await apiFetch(API_CONFIG.endpoints.wishlist.products, {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.wishlist.products}`;
+    
+    const response = await fetch(url, {
       method: 'GET',
+      headers: getAuthHeaders(),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    // Transform products to frontend format
+    return (data || []).map(product => ({
+      id: product.id,
+      name: product.name,
+      category: product.category_name || 'General',
+      price: product.price,
+      originalPrice: product.original_price || null,
+      rating: product.rating || 0,
+      reviews: product.review_count || 0,
+      image: product.images?.[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+      images: product.images || [],
+      inStock: product.stock > 0,
+      stock: product.stock,
+      brand: product.brand || '',
+    }));
   } catch (error) {
     console.error('Error fetching wishlist products:', error);
     throw error;
@@ -33,15 +77,29 @@ export const getWishlistProducts = async () => {
 
 /**
  * Add item to wishlist
- * @param {string} productId - Product ID
- * @returns {Promise<Object>}
  */
 export const addToWishlist = async (productId) => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   try {
-    return await apiFetch(API_CONFIG.endpoints.wishlist.addItem, {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.wishlist.addItem}`;
+    
+    const response = await fetch(url, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: JSON.stringify({ product_id: productId }),
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to add to wishlist');
+    }
+
+    const data = await response.json();
+    return { items: data.product_ids || [] };
   } catch (error) {
     console.error('Error adding to wishlist:', error);
     throw error;
@@ -50,14 +108,28 @@ export const addToWishlist = async (productId) => {
 
 /**
  * Remove item from wishlist
- * @param {string} productId - Product ID
- * @returns {Promise<Object>}
  */
 export const removeFromWishlist = async (productId) => {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   try {
-    return await apiFetch(API_CONFIG.endpoints.wishlist.removeItem(productId), {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.wishlist.removeItem(productId)}`;
+    
+    const response = await fetch(url, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to remove from wishlist');
+    }
+
+    const data = await response.json();
+    return { items: data.product_ids || [] };
   } catch (error) {
     console.error('Error removing from wishlist:', error);
     throw error;
@@ -66,36 +138,40 @@ export const removeFromWishlist = async (productId) => {
 
 /**
  * Check if product is in wishlist
- * @param {string} productId - Product ID
- * @returns {Promise<boolean>}
  */
-export const checkInWishlist = async (productId) => {
+export const isInWishlist = async (productId) => {
+  const token = getAuthToken();
+  if (!token) {
+    return false;
+  }
+
   try {
-    const response = await apiFetch(API_CONFIG.endpoints.wishlist.check(productId), {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.wishlist.check(productId)}`;
+    
+    const response = await fetch(url, {
       method: 'GET',
+      headers: getAuthHeaders(),
     });
-    return response.in_wishlist;
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    return data.in_wishlist || false;
   } catch (error) {
     console.error('Error checking wishlist:', error);
     return false;
   }
 };
 
-/**
- * Check if user is authenticated for wishlist operations
- * @returns {boolean}
- */
-export const canUseBackendWishlist = () => {
-  return !!getAuthToken();
-};
-
+// Export all functions as a service object
 const WishlistService = {
   getWishlist,
   getWishlistProducts,
   addToWishlist,
   removeFromWishlist,
-  checkInWishlist,
-  canUseBackendWishlist,
+  isInWishlist,
 };
 
 export default WishlistService;

@@ -1,91 +1,126 @@
-// Auth Service - API integration for authentication
-import { API_CONFIG, apiFetch, setAuthToken, removeAuthToken, getAuthToken } from './apiConfig';
+// Authentication Service - API integration for user auth
+import API_CONFIG from './apiConfig';
 
 /**
  * Register a new user
- * @param {Object} userData - {name, phone, password, email?}
- * @returns {Promise<{access_token: string, user: Object}>}
  */
-export const register = async (userData) => {
-  const response = await apiFetch(API_CONFIG.endpoints.auth.register, {
-    method: 'POST',
-    body: JSON.stringify(userData),
-    includeAuth: false,
-  });
-  
-  // Store token
-  if (response.access_token) {
-    setAuthToken(response.access_token);
-  }
-  
-  return response;
-};
-
-/**
- * Login user
- * @param {string} identifier - Email or phone number
- * @param {string} password - User password
- * @returns {Promise<{access_token: string, user: Object}>}
- */
-export const login = async (identifier, password) => {
-  const response = await apiFetch(API_CONFIG.endpoints.auth.login, {
-    method: 'POST',
-    body: JSON.stringify({ identifier, password }),
-    includeAuth: false,
-  });
-  
-  // Store token
-  if (response.access_token) {
-    setAuthToken(response.access_token);
-  }
-  
-  return response;
-};
-
-/**
- * Logout user
- */
-export const logout = () => {
-  removeAuthToken();
-};
-
-/**
- * Get current user profile
- * @returns {Promise<Object>}
- */
-export const getCurrentUser = async () => {
-  const token = getAuthToken();
-  if (!token) {
-    return null;
-  }
-  
+export const register = async (name, phone, password, email = null) => {
   try {
-    return await apiFetch(API_CONFIG.endpoints.auth.me, {
-      method: 'GET',
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.register}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        phone,
+        password,
+        email: email || undefined,
+      }),
     });
-  } catch (error) {
-    if (error.status === 401) {
-      removeAuthToken();
-      return null;
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Registration failed');
     }
+
+    const data = await response.json();
+    
+    // Transform to expected user format with token
+    return {
+      user: {
+        id: data.user?.id,
+        name: data.user?.name,
+        email: data.user?.email,
+        phone: data.user?.phone,
+        avatar: data.user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
+      },
+      token: data.access_token,
+    };
+  } catch (error) {
+    console.error('Error during registration:', error);
     throw error;
   }
 };
 
 /**
- * Check if user is authenticated (has valid token)
- * @returns {boolean}
+ * Login user with email or phone
  */
-export const isAuthenticated = () => {
-  return !!getAuthToken();
+export const login = async (identifier, password) => {
+  try {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.login}`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier,
+        password,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    const data = await response.json();
+    
+    // Transform to expected user format with token
+    return {
+      user: {
+        id: data.user?.id,
+        name: data.user?.name,
+        email: data.user?.email,
+        phone: data.user?.phone,
+        avatar: data.user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${data.user?.name || 'User'}`,
+      },
+      token: data.access_token,
+    };
+  } catch (error) {
+    console.error('Error during login:', error);
+    throw error;
+  }
 };
 
+/**
+ * Get current user profile (requires auth)
+ */
+export const getCurrentUser = async (token) => {
+  try {
+    const url = `${API_CONFIG.baseUrl}${API_CONFIG.endpoints.auth.me}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get user profile');
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      avatar: data.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${data.name || 'User'}`,
+    };
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    throw error;
+  }
+};
+
+// Export all functions as a service object
 const AuthService = {
   register,
   login,
-  logout,
   getCurrentUser,
-  isAuthenticated,
 };
 
 export default AuthService;

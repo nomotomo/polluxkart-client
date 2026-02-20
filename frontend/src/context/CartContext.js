@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import CartService from '../services/cartService';
 import { useAuth } from './AuthContext';
+import CartService from '../services/cartService';
 
 const CartContext = createContext();
 
@@ -13,83 +13,105 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem('polluxkart-cart');
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
+  const { isAuthenticated, token } = useAuth();
+  const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Save to localStorage for offline/guest support
-  useEffect(() => {
-    localStorage.setItem('polluxkart-cart', JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  // Sync with backend when user logs in
-  useEffect(() => {
-    const syncCart = async () => {
-      if (isAuthenticated && CartService.canUseBackendCart()) {
-        setIsSyncing(true);
-        try {
-          const backendCart = await CartService.getCart();
-          if (backendCart && backendCart.items && backendCart.items.length > 0) {
-            // Transform backend cart items to frontend format
-            const items = backendCart.items.map(item => ({
-              id: item.product_id,
-              name: item.product_name,
-              price: item.price,
-              quantity: item.quantity,
-              image: item.image,
-            }));
-            setCartItems(items);
-          }
-        } catch (err) {
-          console.error('Failed to sync cart:', err);
-        } finally {
-          setIsSyncing(false);
-        }
+  // Load cart from localStorage as fallback
+  const loadLocalCart = useCallback(() => {
+    const savedCart = localStorage.getItem('polluxkart-cart');
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch (e) {
+        console.error('Error parsing local cart:', e);
+        setCartItems([]);
       }
-    };
+    }
+  }, []);
 
-    syncCart();
-  }, [isAuthenticated, user?.id]);
+  // Save cart to localStorage
+  const saveLocalCart = useCallback((items) => {
+    localStorage.setItem('polluxkart-cart', JSON.stringify(items));
+  }, []);
+
+  // Sync cart with backend when authenticated
+  const syncCartWithBackend = useCallback(async () => {
+    if (!isAuthenticated) {
+      loadLocalCart();
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const response = await CartService.getCart();
+      setCartItems(response.items || []);
+      saveLocalCart(response.items || []);
+    } catch (error) {
+      console.error('Error syncing cart:', error);
+      // Fallback to local cart
+      loadLocalCart();
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isAuthenticated, loadLocalCart, saveLocalCart]);
+
+  // Initial load and sync on auth change
+  useEffect(() => {
+    syncCartWithBackend();
+  }, [isAuthenticated, token, syncCartWithBackend]);
 
   const addToCart = useCallback(async (product, quantity = 1) => {
-    // Optimistically update local state
+    // Optimistic update
     setCartItems(prev => {
       const existingItem = prev.find(item => item.id === product.id);
+      let newItems;
       if (existingItem) {
-        return prev.map(item =>
+        newItems = prev.map(item =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
+      } else {
+        newItems = [...prev, { ...product, quantity }];
       }
-      return [...prev, { ...product, quantity }];
+      saveLocalCart(newItems);
+      return newItems;
     });
 
     // Sync with backend if authenticated
-    if (isAuthenticated && CartService.canUseBackendCart()) {
+    if (isAuthenticated) {
       try {
-        await CartService.addToCart(product.id, quantity);
-      } catch (err) {
-        console.error('Failed to sync add to cart:', err);
+        const response = await CartService.addToCart(product.id, quantity);
+        setCartItems(response.items || []);
+        saveLocalCart(response.items || []);
+      } catch (error) {
+        console.error('Error adding to cart:', error);
+        // Keep local state, it will sync later
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, saveLocalCart]);
 
   const removeFromCart = useCallback(async (productId) => {
-    setCartItems(prev => prev.filter(item => item.id !== productId));
+    // Optimistic update
+    setCartItems(prev => {
+      const newItems = prev.filter(item => item.id !== productId);
+      saveLocalCart(newItems);
+      return newItems;
+    });
 
-    if (isAuthenticated && CartService.canUseBackendCart()) {
+    // Sync with backend if authenticated
+    if (isAuthenticated) {
       try {
-        await CartService.removeFromCart(productId);
-      } catch (err) {
-        console.error('Failed to sync remove from cart:', err);
+        const response = await CartService.removeFromCart(productId);
+        setCartItems(response.items || []);
+        saveLocalCart(response.items || []);
+      } catch (error) {
+        console.error('Error removing from cart:', error);
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, saveLocalCart]);
 
   const updateQuantity = useCallback(async (productId, quantity) => {
     if (quantity < 1) {
@@ -97,40 +119,47 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    setCartItems(prev =>
-      prev.map(item =>
+    // Optimistic update
+    setCartItems(prev => {
+      const newItems = prev.map(item =>
         item.id === productId ? { ...item, quantity } : item
-      )
-    );
+      );
+      saveLocalCart(newItems);
+      return newItems;
+    });
 
-    if (isAuthenticated && CartService.canUseBackendCart()) {
+    // Sync with backend if authenticated
+    if (isAuthenticated) {
       try {
-        await CartService.updateCartItem(productId, quantity);
-      } catch (err) {
-        console.error('Failed to sync quantity update:', err);
+        const response = await CartService.updateCartItem(productId, quantity);
+        setCartItems(response.items || []);
+        saveLocalCart(response.items || []);
+      } catch (error) {
+        console.error('Error updating cart:', error);
       }
     }
-  }, [isAuthenticated, removeFromCart]);
+  }, [isAuthenticated, removeFromCart, saveLocalCart]);
 
   const clearCart = useCallback(async () => {
     setCartItems([]);
+    saveLocalCart([]);
 
-    if (isAuthenticated && CartService.canUseBackendCart()) {
+    if (isAuthenticated) {
       try {
         await CartService.clearCart();
-      } catch (err) {
-        console.error('Failed to sync clear cart:', err);
+      } catch (error) {
+        console.error('Error clearing cart:', error);
       }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, saveLocalCart]);
 
   const cartTotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + (item.price || 0) * (item.quantity || 0),
     0
   );
 
   const cartCount = cartItems.reduce(
-    (count, item) => count + item.quantity,
+    (count, item) => count + (item.quantity || 0),
     0
   );
 
@@ -138,14 +167,15 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider
       value={{
         cartItems,
+        isLoading,
+        isSyncing,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
         cartTotal,
         cartCount,
-        isLoading,
-        isSyncing,
+        syncCart: syncCartWithBackend,
       }}
     >
       {children}
